@@ -1,0 +1,69 @@
+{% extends "layout.html.twig" %}
+
+{% block title %}Home - Price Grabber{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    {# Welcome Card #}
+    <div class="card p-6">
+        <h2 class="text-2xl font-semibold mb-4">Welcome to Price Grabber</h2>
+        <p class="text-muted-foreground mb-6">
+            This tool helps you track product prices across multiple websites.
+        </p>
+
+        <h3 class="text-lg font-semibold mb-3">Features:</h3>
+        <ul class="space-y-2 ml-6 list-disc text-muted-foreground">
+            <li>Track prices from multiple retailers</li>
+            <li>Historical price data</li>
+            <li>Bulk import products</li>
+            <li>Configurable scraper patterns per hostname</li>
+            <li>Parent-child product relationships (e.g., different sizes)</li>
+        </ul>
+    </div>
+
+    {# Quick Start Card #}
+    <div class="card p-6">
+        <h2 class="text-2xl font-semibold mb-4">Quick Start</h2>
+        <ol class="space-y-3 ml-6 list-decimal text-muted-foreground">
+            <li>
+                Configure your database connection in the <code class="bg-muted px-2 py-1 rounded text-sm">.env</code> file
+            </li>
+            <li>
+                Import the database schema:
+                <code class="bg-muted px-2 py-1 rounded text-sm">mysql -u user -p database &lt; database/schema.sql</code>
+            </li>
+            <li>Configure scraper patterns for your target websites</li>
+            <li>Import products using the bulk import feature</li>
+            <li>
+                Run the scraper:
+                <code class="bg-muted px-2 py-1 rounded text-sm">php scrape.php --all</code>
+            </li>
+        </ol>
+
+        <div class="mt-6 flex gap-3">
+            <a href="bulk-import.php" class="btn btn-primary">
+                Import Products
+            </a>
+            <a href="products.php" class="btn btn-outline">
+                View Products
+            </a>
+        </div>
+    </div>
+
+    {# Stats Cards (Optional - can be populated later) #}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="card p-4">
+            <h3 class="text-sm font-medium text-muted-foreground">Total Products</h3>
+            <p class="text-3xl font-bold mt-2">{{ stats.total_products|default(0) }}</p>
+        </div>
+        <div class="card p-4">
+            <h3 class="text-sm font-medium text-muted-foreground">Active Scrapers</h3>
+            <p class="text-3xl font-bold mt-2">{{ stats.active_scrapers|default(0) }}</p>
+        </div>
+        <div class="card p-4">
+            <h3 class="text-sm font-medium text-muted-foreground">Last Scrape</h3>
+            <p class="text-3xl font-bold mt-2">{{ stats.last_scrape|default('Never') }}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

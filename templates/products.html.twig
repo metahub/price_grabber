@@ -1,0 +1,118 @@
+{% extends "layout.html.twig" %}
+
+{% block title %}Products - Price Grabber{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="card p-6">
+        <h2 class="text-2xl font-semibold mb-6">Product Overview</h2>
+
+        {# Filters #}
+        <form method="GET" class="mb-6">
+            <div class="flex flex-wrap gap-3">
+                <input
+                    type="text"
+                    name="search"
+                    placeholder="Search products..."
+                    value="{{ search }}"
+                    class="input flex-1 min-w-[250px]"
+                />
+
+                <select name="parent_filter" class="select w-auto">
+                    <option value="">All Products</option>
+                    <option value="parents_only" {% if parent_filter == 'parents_only' %}selected{% endif %}>
+                        Parent Products Only
+                    </option>
+                </select>
+
+                <button type="submit" class="btn btn-primary">
+                    Filter
+                </button>
+
+                <a href="products.php" class="btn btn-outline">
+                    Clear
+                </a>
+            </div>
+        </form>
+
+        {# Products Table #}
+        {% if products is empty %}
+            <div class="text-center py-12">
+                <p class="text-muted-foreground mb-4">
+                    No products found.
+                </p>
+                <a href="bulk-import.php" class="btn btn-primary">
+                    Import Products
+                </a>
+            </div>
+        {% else %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b">
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">ID</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Product</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Latest Price</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Last Checked</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in products %}
+                            <tr class="border-b hover:bg-muted/50 transition-colors">
+                                <td class="py-3 px-4 text-sm">{{ product.id }}</td>
+                                <td class="py-3 px-4">
+                                    <a href="{{ product.url }}" target="_blank" class="font-medium text-blue-600 hover:underline">
+                                        {{ product.name|default('Product #' ~ product.product_id) }}
+                                    </a>
+                                    {% if product.parent_id %}
+                                        <div class="text-xs text-muted-foreground mt-1">
+                                            Parent: {{ product.parent_name }}
+                                        </div>
+                                    {% elseif product.child_count > 0 %}
+                                        <div class="text-xs text-muted-foreground mt-1">
+                                            {{ product.child_count }} variant(s)
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 px-4">
+                                    {% if product.latest_price %}
+                                        <span class="font-semibold text-green-600">
+                                            {{ product.latest_price.currency }}
+                                            {{ product.latest_price.price|number_format(2) }}
+                                        </span>
+                                        {% if product.latest_price.seller %}
+                                            <div class="text-xs text-muted-foreground">
+                                                {{ product.latest_price.seller }}
+                                            </div>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted-foreground">No data</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 px-4 text-sm">
+                                    {% if product.latest_price %}
+                                        {{ product.latest_price.fetched_at|date('Y-m-d H:i') }}
+                                    {% else %}
+                                        <span class="text-muted-foreground">Never</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 px-4">
+                                    <a href="product-detail.php?id={{ product.id }}" class="text-sm text-blue-600 hover:underline">
+                                        View Details
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {# Pagination or results count could go here #}
+            <div class="mt-4 text-sm text-muted-foreground">
+                Showing {{ products|length }} product(s)
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

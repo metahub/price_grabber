@@ -1,0 +1,7 @@
+.env
+vendor/
+.DS_Store
+*.log
+composer.lock
+logs/
+cache/

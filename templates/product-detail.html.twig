@@ -1,0 +1,137 @@
+{% extends "layout.html.twig" %}
+
+{% block title %}{{ product.name }} - Price Grabber{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    {# Product Information Card #}
+    <div class="card p-6">
+        <h2 class="text-2xl font-semibold mb-6 pb-3 border-b">{{ product.name }}</h2>
+
+        <div class="space-y-3">
+            <div class="flex py-2 border-b">
+                <div class="font-semibold w-40 text-muted-foreground">Product ID:</div>
+                <div class="flex-1">{{ product.id }}</div>
+            </div>
+
+            <div class="flex py-2 border-b">
+                <div class="font-semibold w-40 text-muted-foreground">Type:</div>
+                <div class="flex-1">
+                    {% if product.parent_id %}
+                        <span class="badge badge-warning">Child Product</span>
+                    {% else %}
+                        <span class="badge badge-default">Parent Product</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if parent %}
+                <div class="flex py-2 border-b">
+                    <div class="font-semibold w-40 text-muted-foreground">Parent Product:</div>
+                    <div class="flex-1">
+                        <a href="product-detail.php?id={{ parent.id }}" class="text-blue-600 hover:underline">
+                            {{ parent.name }}
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="flex py-2 border-b">
+                <div class="font-semibold w-40 text-muted-foreground">URL:</div>
+                <div class="flex-1">
+                    <a href="{{ product.url }}" target="_blank" class="text-blue-600 hover:underline break-all">
+                        {{ product.url }}
+                    </a>
+                </div>
+            </div>
+
+            {% if product.description %}
+                <div class="flex py-2 border-b">
+                    <div class="font-semibold w-40 text-muted-foreground">Description:</div>
+                    <div class="flex-1">{{ product.description }}</div>
+                </div>
+            {% endif %}
+
+            <div class="flex py-2 border-b">
+                <div class="font-semibold w-40 text-muted-foreground">Created:</div>
+                <div class="flex-1">{{ product.created_at|date('Y-m-d H:i') }}</div>
+            </div>
+        </div>
+    </div>
+
+    {# Product Variants Card #}
+    {% if children is not empty %}
+        <div class="card p-6">
+            <h2 class="text-xl font-semibold mb-4">Product Variants ({{ children|length }})</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for child in children %}
+                    <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div class="font-semibold mb-2">{{ child.name }}</div>
+
+                        {% if child.latest_price %}
+                            <div class="text-lg font-semibold text-green-600 my-2">
+                                {{ child.latest_price.currency }}
+                                {{ child.latest_price.price|number_format(2) }}
+                            </div>
+                            <div class="text-sm text-muted-foreground mb-3">
+                                Last checked: {{ child.latest_price.fetched_at|date('Y-m-d') }}
+                            </div>
+                        {% endif %}
+
+                        <a href="product-detail.php?id={{ child.id }}" class="text-sm text-blue-600 hover:underline">
+                            View Details
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    {# Price History Card #}
+    <div class="card p-6">
+        <h2 class="text-xl font-semibold mb-4">Price History</h2>
+
+        {% if price_history is empty %}
+            <div class="text-center py-8 text-muted-foreground">
+                <p>No price history available yet. Run the scraper to collect data.</p>
+            </div>
+        {% else %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b">
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Date</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Price</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Seller</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Availability</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in price_history %}
+                            <tr class="border-b hover:bg-muted/50 transition-colors">
+                                <td class="py-3 px-4 text-sm">{{ entry.fetched_at|date('Y-m-d H:i') }}</td>
+                                <td class="py-3 px-4 font-semibold text-green-600">
+                                    {{ entry.currency }}
+                                    {{ entry.price|number_format(2) }}
+                                </td>
+                                <td class="py-3 px-4 text-sm">{{ entry.seller|default('-') }}</td>
+                                <td class="py-3 px-4 text-sm">
+                                    {{ entry.availability|replace({'_': ' '})|capitalize }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </div>
+
+    {# Back Button #}
+    <div>
+        <a href="products.php" class="btn btn-outline">
+            &larr; Back to Products
+        </a>
+    </div>
+</div>
+{% endblock %}

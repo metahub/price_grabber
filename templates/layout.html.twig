@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Price Grabber{% endblock %}</title>
+
+    {# TailwindCSS CDN #}
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    {# Custom Tailwind Configuration - shadcn/ui inspired #}
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        border: "hsl(214.3 31.8% 91.4%)",
+                        input: "hsl(214.3 31.8% 91.4%)",
+                        ring: "hsl(222.2 84% 4.9%)",
+                        background: "hsl(0 0% 100%)",
+                        foreground: "hsl(222.2 84% 4.9%)",
+                        primary: {
+                            DEFAULT: "hsl(222.2 47.4% 11.2%)",
+                            foreground: "hsl(210 40% 98%)",
+                        },
+                        secondary: {
+                            DEFAULT: "hsl(210 40% 96.1%)",
+                            foreground: "hsl(222.2 47.4% 11.2%)",
+                        },
+                        destructive: {
+                            DEFAULT: "hsl(0 84.2% 60.2%)",
+                            foreground: "hsl(210 40% 98%)",
+                        },
+                        muted: {
+                            DEFAULT: "hsl(210 40% 96.1%)",
+                            foreground: "hsl(215.4 16.3% 46.9%)",
+                        },
+                        accent: {
+                            DEFAULT: "hsl(210 40% 96.1%)",
+                            foreground: "hsl(222.2 47.4% 11.2%)",
+                        },
+                        card: {
+                            DEFAULT: "hsl(0 0% 100%)",
+                            foreground: "hsl(222.2 84% 4.9%)",
+                        },
+                    },
+                    borderRadius: {
+                        lg: "0.5rem",
+                        md: "calc(0.5rem - 2px)",
+                        sm: "calc(0.5rem - 4px)",
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer base {
+            * {
+                @apply border-border;
+            }
+            body {
+                @apply bg-background text-foreground;
+            }
+        }
+
+        @layer components {
+            .btn {
+                @apply inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
+            }
+
+            .btn-primary {
+                @apply bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2;
+            }
+
+            .btn-secondary {
+                @apply bg-secondary text-secondary-foreground hover:bg-secondary/80 px-4 py-2;
+            }
+
+            .btn-destructive {
+                @apply bg-destructive text-destructive-foreground hover:bg-destructive/90 px-4 py-2;
+            }
+
+            .btn-outline {
+                @apply border border-input bg-background hover:bg-accent hover:text-accent-foreground px-4 py-2;
+            }
+
+            .card {
+                @apply rounded-lg border bg-card text-card-foreground shadow-sm;
+            }
+
+            .input {
+                @apply flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+            }
+
+            .select {
+                @apply flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+            }
+
+            .textarea {
+                @apply flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+            }
+
+            .badge {
+                @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
+            }
+
+            .badge-default {
+                @apply border-transparent bg-primary text-primary-foreground hover:bg-primary/80;
+            }
+
+            .badge-secondary {
+                @apply border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80;
+            }
+
+            .badge-success {
+                @apply border-transparent bg-green-500 text-white;
+            }
+
+            .badge-warning {
+                @apply border-transparent bg-yellow-500 text-white;
+            }
+
+            .badge-danger {
+                @apply border-transparent bg-red-500 text-white;
+            }
+
+            .badge-outline {
+                @apply text-foreground;
+            }
+
+            .alert {
+                @apply relative w-full rounded-lg border p-4;
+            }
+
+            .alert-success {
+                @apply border-green-200 bg-green-50 text-green-800;
+            }
+
+            .alert-error {
+                @apply border-red-200 bg-red-50 text-red-800;
+            }
+
+            .alert-warning {
+                @apply border-yellow-200 bg-yellow-50 text-yellow-800;
+            }
+
+            .alert-info {
+                @apply border-blue-200 bg-blue-50 text-blue-800;
+            }
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="min-h-screen bg-slate-50">
+    {# Header Navigation #}
+    <header class="border-b bg-white">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-primary">Price Grabber</h1>
+                    <p class="text-sm text-muted-foreground">Track product prices across multiple retailers</p>
+                </div>
+                {% if current_user %}
+                    <div class="flex items-center gap-4">
+                        <div class="text-right">
+                            <div class="text-sm font-medium">{{ current_user.username|default(current_user.email) }}</div>
+                            <div class="text-xs text-muted-foreground">{{ current_user.email }}</div>
+                        </div>
+                        <a href="logout.php" class="btn btn-outline text-sm">
+                            Logout
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if current_user %}
+                <nav class="mt-4 flex gap-2">
+                    <a href="index.php" class="btn btn-{{ current_page == 'home' ? 'primary' : 'outline' }}">
+                        Home
+                    </a>
+                    <a href="products.php" class="btn btn-{{ current_page == 'products' ? 'primary' : 'outline' }}">
+                        View Products
+                    </a>
+                    <a href="bulk-import.php" class="btn btn-{{ current_page == 'bulk-import' ? 'primary' : 'outline' }}">
+                        Bulk Import
+                    </a>
+                    <a href="scraper-config.php" class="btn btn-{{ current_page == 'scraper-config' ? 'primary' : 'outline' }}">
+                        Scraper Config
+                    </a>
+                    <a href="users.php" class="btn btn-{{ current_page == 'users' ? 'primary' : 'outline' }}">
+                        Users
+                    </a>
+                </nav>
+            {% endif %}
+        </div>
+    </header>
+
+    {# Main Content #}
+    <main class="container mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    {# Footer #}
+    <footer class="mt-12 border-t bg-white py-6">
+        <div class="container mx-auto px-4">
+            <p class="text-center text-sm text-muted-foreground">
+                Price Grabber &copy; {{ "now"|date("Y") }}
+            </p>
+        </div>
+    </footer>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
