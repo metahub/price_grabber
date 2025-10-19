@@ -123,14 +123,37 @@ class Product
                        parent.name as parent_name,
                        (SELECT COUNT(*) FROM products WHERE parent_id = p.product_id) as child_count
                 FROM products p
-                LEFT JOIN products parent ON p.parent_id = parent.product_id
-                WHERE 1=1";
+                LEFT JOIN products parent ON p.parent_id = parent.product_id";
 
         $params = [];
 
+        // Handle seller filter with subquery using named parameters
+        if (!empty($filters['sellers']) && is_array($filters['sellers'])) {
+            $sellerPlaceholders = [];
+            foreach ($filters['sellers'] as $index => $seller) {
+                $placeholder = ":seller_{$index}";
+                $sellerPlaceholders[] = $placeholder;
+                $params[$placeholder] = $seller;
+            }
+
+            $sql .= " INNER JOIN (
+                        SELECT DISTINCT product_id
+                        FROM price_history
+                        WHERE seller IN (" . implode(',', $sellerPlaceholders) . ")
+                        AND fetched_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                      ) ph ON p.product_id = ph.product_id";
+        }
+
+        $sql .= " WHERE 1=1";
+
         if (!empty($filters['search'])) {
-            $sql .= " AND (p.name LIKE :search OR p.description LIKE :search OR p.product_id LIKE :search OR p.sku LIKE :search OR p.ean LIKE :search)";
-            $params[':search'] = '%' . $filters['search'] . '%';
+            $searchValue = '%' . $filters['search'] . '%';
+            $sql .= " AND (p.name LIKE :search1 OR p.description LIKE :search2 OR p.product_id LIKE :search3 OR p.sku LIKE :search4 OR p.ean LIKE :search5)";
+            $params[':search1'] = $searchValue;
+            $params[':search2'] = $searchValue;
+            $params[':search3'] = $searchValue;
+            $params[':search4'] = $searchValue;
+            $params[':search5'] = $searchValue;
         }
 
         if (isset($filters['parent_id'])) {
