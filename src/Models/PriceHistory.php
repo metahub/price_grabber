@@ -124,4 +124,10 @@ class PriceHistory
             throw $e;
         }
     }
+
+    public function getAllSellers()
+    {
+        $sql = "SELECT DISTINCT seller FROM price_history WHERE seller IS NOT NULL AND seller != '' ORDER BY seller";
+        return $this->db->fetchAll($sql);
+    }
 }
