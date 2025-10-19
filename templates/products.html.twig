@@ -259,7 +259,7 @@
                     <tbody>
                         {% for product in products %}
                             <tr class="border-b hover:bg-muted/50 transition-colors">
-                                <td class="py-3 px-4 text-sm">{{ product.id }}</td>
+                                <td class="py-3 px-4 text-sm">{{ product.product_id }}</td>
                                 <td class="py-3 px-4">
                                     <a href="{{ product.url }}" target="_blank" class="font-medium text-blue-600 hover:underline">
                                         {{ product.name|default('Product #' ~ product.product_id) }}

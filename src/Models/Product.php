@@ -175,7 +175,7 @@ class Product
             $params[':site_status'] = $filters['site_status'];
         }
 
-        $sql .= " ORDER BY p.created_at DESC";
+        $sql .= " ORDER BY p.product_id ASC";
 
         // Add pagination to SQL before preparing
         if (!empty($filters['limit'])) {
