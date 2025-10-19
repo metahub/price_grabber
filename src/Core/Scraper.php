@@ -130,10 +130,10 @@ class Scraper
         ];
     }
 
-    public function scrapeProducts($filters = [])
+    public function scrapeProducts($filters = [], $limit = null)
     {
         // Get only products that need scraping based on minimum interval
-        $products = $this->productModel->getProductsNeedingScrape($this->minInterval);
+        $products = $this->productModel->getProductsNeedingScrape($this->minInterval, $limit);
 
         // Apply additional filters if provided
         if (!empty($filters)) {
@@ -153,7 +153,8 @@ class Scraper
 
         Logger::info("Starting batch scrape", [
             'total_products' => count($products),
-            'min_interval' => $this->minInterval
+            'min_interval' => $this->minInterval,
+            'limit' => $limit
         ]);
 
         foreach ($products as $product) {

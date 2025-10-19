@@ -325,7 +325,7 @@ class Product
         return $this->db->fetchAll($sql);
     }
 
-    public function getProductsNeedingScrape($minInterval)
+    public function getProductsNeedingScrape($minInterval, $limit = null)
     {
         $sql = "SELECT p.*
                 FROM products p
@@ -336,8 +336,20 @@ class Product
                 ) ph ON p.product_id = ph.product_id
                 WHERE ph.last_fetch IS NULL
                    OR ph.last_fetch < DATE_SUB(NOW(), INTERVAL :interval SECOND)
-                ORDER BY ph.last_fetch ASC, p.product_id ASC";
+                ORDER BY p.product_id ASC";
 
-        return $this->db->fetchAll($sql, [':interval' => $minInterval]);
+        if ($limit !== null && $limit > 0) {
+            $sql .= " LIMIT :limit";
+        }
+
+        $stmt = $this->db->getConnection()->prepare($sql);
+        $stmt->bindValue(':interval', $minInterval, \PDO::PARAM_INT);
+
+        if ($limit !== null && $limit > 0) {
+            $stmt->bindValue(':limit', (int)$limit, \PDO::PARAM_INT);
+        }
+
+        $stmt->execute();
+        return $stmt->fetchAll();
     }
 }
