@@ -9,7 +9,7 @@
 
         {# Filters #}
         <form method="GET" class="mb-6">
-            <div class="flex flex-wrap gap-3">
+            <div class="flex flex-wrap gap-3 mb-3">
                 <input
                     type="text"
                     name="search"
@@ -39,7 +39,178 @@
                     Clear
                 </a>
             </div>
+
+            {% if all_sellers is not empty %}
+                <div class="mb-3">
+                    <label class="block text-sm font-medium mb-2">Filter by Buybox Owner (Seller):</label>
+                    <div class="relative">
+                        {# Hidden inputs to store selected sellers #}
+                        <div id="seller-inputs">
+                            {% for seller in selected_sellers %}
+                                <input type="hidden" name="sellers[]" value="{{ seller }}" class="seller-input" />
+                            {% endfor %}
+                        </div>
+
+                        {# Combobox button #}
+                        <button
+                            type="button"
+                            id="seller-combobox-btn"
+                            class="input w-full text-left flex items-center justify-between"
+                        >
+                            <span id="seller-combobox-text" class="{% if selected_sellers is empty %}text-muted-foreground{% endif %}">
+                                {% if selected_sellers is empty %}
+                                    Select sellers...
+                                {% else %}
+                                    {{ selected_sellers|length }} seller(s) selected
+                                {% endif %}
+                            </span>
+                            <svg class="h-4 w-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+
+                        {# Combobox dropdown #}
+                        <div
+                            id="seller-combobox-dropdown"
+                            class="hidden absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg"
+                        >
+                            <div class="p-2">
+                                {# Search input #}
+                                <input
+                                    type="text"
+                                    id="seller-search"
+                                    placeholder="Search sellers..."
+                                    class="input w-full mb-2"
+                                />
+
+                                {# Select All / None buttons #}
+                                <div class="flex gap-2 mb-2">
+                                    <button
+                                        type="button"
+                                        id="select-all-sellers"
+                                        class="btn btn-outline text-xs flex-1"
+                                    >
+                                        Select All
+                                    </button>
+                                    <button
+                                        type="button"
+                                        id="select-none-sellers"
+                                        class="btn btn-outline text-xs flex-1"
+                                    >
+                                        Select None
+                                    </button>
+                                </div>
+
+                                {# Seller list #}
+                                <div class="max-h-64 overflow-y-auto border rounded p-2">
+                                    {% for seller_row in all_sellers %}
+                                        {% set seller = seller_row.seller %}
+                                        <label class="flex items-center py-2 px-2 hover:bg-muted rounded cursor-pointer seller-option">
+                                            <input
+                                                type="checkbox"
+                                                value="{{ seller }}"
+                                                class="h-4 w-4 rounded border-gray-300 seller-checkbox"
+                                                {% if seller in selected_sellers %}checked{% endif %}
+                                                data-seller="{{ seller }}"
+                                            />
+                                            <span class="ml-2 text-sm seller-name">{{ seller }}</span>
+                                        </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
         </form>
+
+        {# JavaScript for combobox functionality #}
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const comboboxBtn = document.getElementById('seller-combobox-btn');
+                const comboboxDropdown = document.getElementById('seller-combobox-dropdown');
+                const comboboxText = document.getElementById('seller-combobox-text');
+                const searchInput = document.getElementById('seller-search');
+                const selectAllBtn = document.getElementById('select-all-sellers');
+                const selectNoneBtn = document.getElementById('select-none-sellers');
+                const sellerInputs = document.getElementById('seller-inputs');
+                const sellerCheckboxes = document.querySelectorAll('.seller-checkbox');
+                const sellerOptions = document.querySelectorAll('.seller-option');
+
+                // Toggle dropdown
+                comboboxBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    comboboxDropdown.classList.toggle('hidden');
+                    if (!comboboxDropdown.classList.contains('hidden')) {
+                        searchInput.focus();
+                    }
+                });
+
+                // Close dropdown when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (!comboboxBtn.contains(e.target) && !comboboxDropdown.contains(e.target)) {
+                        comboboxDropdown.classList.add('hidden');
+                    }
+                });
+
+                // Update hidden inputs and button text
+                function updateSelection() {
+                    const selected = Array.from(sellerCheckboxes)
+                        .filter(cb => cb.checked)
+                        .map(cb => cb.value);
+
+                    // Update hidden inputs
+                    sellerInputs.innerHTML = selected
+                        .map(seller => `<input type="hidden" name="sellers[]" value="${seller}" class="seller-input" />`)
+                        .join('');
+
+                    // Update button text
+                    if (selected.length === 0) {
+                        comboboxText.textContent = 'Select sellers...';
+                        comboboxText.classList.add('text-muted-foreground');
+                    } else {
+                        comboboxText.textContent = `${selected.length} seller(s) selected`;
+                        comboboxText.classList.remove('text-muted-foreground');
+                    }
+                }
+
+                // Handle checkbox changes
+                sellerCheckboxes.forEach(function(checkbox) {
+                    checkbox.addEventListener('change', updateSelection);
+                });
+
+                // Select All
+                selectAllBtn.addEventListener('click', function() {
+                    sellerCheckboxes.forEach(function(cb) {
+                        if (!cb.closest('.seller-option').classList.contains('hidden')) {
+                            cb.checked = true;
+                        }
+                    });
+                    updateSelection();
+                });
+
+                // Select None
+                selectNoneBtn.addEventListener('click', function() {
+                    sellerCheckboxes.forEach(function(cb) {
+                        cb.checked = false;
+                    });
+                    updateSelection();
+                });
+
+                // Search functionality
+                searchInput.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    sellerOptions.forEach(function(option) {
+                        const sellerName = option.querySelector('.seller-name').textContent.toLowerCase();
+                        if (sellerName.includes(searchTerm)) {
+                            option.classList.remove('hidden');
+                        } else {
+                            option.classList.add('hidden');
+                        }
+                    });
+                });
+            });
+        </script>
 
         {# Products Table #}
         {% if products is empty %}
