@@ -5,7 +5,30 @@
 {% block content %}
 <div class="space-y-6">
     <div class="card p-6">
-        <h2 class="text-2xl font-semibold mb-6">Product Overview</h2>
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-semibold">Product Overview</h2>
+            <form method="GET" class="inline">
+                {# Preserve all current filters as hidden inputs #}
+                {% if search %}
+                    <input type="hidden" name="search" value="{{ search }}" />
+                {% endif %}
+                {% if parent_filter %}
+                    <input type="hidden" name="parent_filter" value="{{ parent_filter }}" />
+                {% endif %}
+                {% if per_page %}
+                    <input type="hidden" name="per_page" value="{{ per_page }}" />
+                {% endif %}
+                {% for seller in selected_sellers %}
+                    <input type="hidden" name="sellers[]" value="{{ seller }}" />
+                {% endfor %}
+                {% if page %}
+                    <input type="hidden" name="page" value="{{ page }}" />
+                {% endif %}
+                <button type="submit" name="export" value="csv" class="btn bg-green-600 text-white hover:bg-green-700 px-4 py-2">
+                    Export CSV
+                </button>
+            </form>
+        </div>
 
         {# Filters #}
         <form method="GET" class="mb-6">

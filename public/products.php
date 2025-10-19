@@ -57,6 +57,87 @@ foreach ($products as $product) {
 // Get all available sellers for the filter
 $allSellers = $priceHistoryModel->getAllSellers();
 
+// Handle CSV export
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    // Get ALL filtered products (remove pagination)
+    $exportFilters = $filters;
+    unset($exportFilters['limit']);
+    unset($exportFilters['offset']);
+
+    $exportProducts = $productModel->getAll($exportFilters);
+
+    // Get prices for all products
+    $exportData = [];
+    foreach ($exportProducts as $product) {
+        $latestPrice = $priceHistoryModel->getLatestByProduct($product['product_id']);
+        $product['latest_price'] = $latestPrice;
+        $exportData[] = $product;
+    }
+
+    // Set headers for CSV download
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=products_export_' . date('Y-m-d_H-i-s') . '.csv');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+
+    // Open output stream
+    $output = fopen('php://output', 'w');
+
+    // Write UTF-8 BOM for Excel compatibility
+    fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+
+    // Write CSV header
+    fputcsv($output, [
+        'ID',
+        'Product ID',
+        'Parent ID',
+        'SKU',
+        'EAN',
+        'Site',
+        'Site Product ID',
+        'Name',
+        'Description',
+        'URL',
+        'Price',
+        'UVP',
+        'Site Status',
+        'Latest Price',
+        'Latest Price Currency',
+        'Latest Price Seller',
+        'Latest Price Date',
+        'Created At',
+        'Updated At'
+    ]);
+
+    // Write data rows
+    foreach ($exportData as $product) {
+        fputcsv($output, [
+            $product['id'],
+            $product['product_id'],
+            $product['parent_id'],
+            $product['sku'],
+            $product['ean'],
+            $product['site'],
+            $product['site_product_id'],
+            $product['name'],
+            $product['description'],
+            $product['url'],
+            $product['price'],
+            $product['uvp'],
+            $product['site_status'],
+            $product['latest_price']['price'] ?? '',
+            $product['latest_price']['currency'] ?? '',
+            $product['latest_price']['seller'] ?? '',
+            $product['latest_price']['fetched_at'] ?? '',
+            $product['created_at'],
+            $product['updated_at']
+        ]);
+    }
+
+    fclose($output);
+    exit;
+}
+
 View::display('products.html.twig', [
     'current_page' => 'products',
     'products' => $productsWithPrices,
