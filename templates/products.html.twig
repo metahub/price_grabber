@@ -15,6 +15,9 @@
                 {% if parent_filter %}
                     <input type="hidden" name="parent_filter" value="{{ parent_filter }}" />
                 {% endif %}
+                {% if product_priority %}
+                    <input type="hidden" name="product_priority" value="{{ product_priority }}" />
+                {% endif %}
                 {% if per_page %}
                     <input type="hidden" name="per_page" value="{{ per_page }}" />
                 {% endif %}
@@ -128,6 +131,16 @@
                     <option value="parents_only" {% if parent_filter == 'parents_only' %}selected{% endif %}>
                         Parent Products Only
                     </option>
+                </select>
+
+                <select name="product_priority" class="select w-auto">
+                    <option value="">All Priorities</option>
+                    {% for priority_row in all_priorities %}
+                        {% set priority = priority_row.product_priority %}
+                        <option value="{{ priority }}" {% if product_priority == priority %}selected{% endif %}>
+                            {{ priority|capitalize }}
+                        </option>
+                    {% endfor %}
                 </select>
 
                 <select name="per_page" class="select w-auto">
@@ -251,6 +264,7 @@
                         <tr class="border-b">
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">ID</th>
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Product</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Priority</th>
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Latest Price</th>
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Last Checked</th>
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Actions</th>
@@ -272,6 +286,25 @@
                                         <div class="text-xs text-muted-foreground mt-1">
                                             {{ product.child_count }} variant(s)
                                         </div>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 px-4">
+                                    {% if product.product_priority == 'white' %}
+                                        <span class="badge border-transparent bg-green-600 text-white">
+                                            {{ product.product_priority|capitalize }}
+                                        </span>
+                                    {% elseif product.product_priority == 'grey' %}
+                                        <span class="badge border-transparent bg-orange-500 text-white">
+                                            {{ product.product_priority|capitalize }}
+                                        </span>
+                                    {% elseif product.product_priority == 'black' %}
+                                        <span class="badge badge-danger">
+                                            {{ product.product_priority|capitalize }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge badge-outline">
+                                            {{ product.product_priority|capitalize }}
+                                        </span>
                                     {% endif %}
                                 </td>
                                 <td class="py-3 px-4">
@@ -317,7 +350,7 @@
                     <div class="flex gap-2">
                         {# Previous button #}
                         {% if page > 1 %}
-                            <a href="?page={{ page - 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page={{ page - 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% if product_priority %}&product_priority={{ product_priority }}{% endif %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
                                class="btn btn-outline">
                                 Previous
                             </a>
@@ -328,7 +361,7 @@
                         {% set end_page = min(total_pages, page + 2) %}
 
                         {% if start_page > 1 %}
-                            <a href="?page=1&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page=1&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% if product_priority %}&product_priority={{ product_priority }}{% endif %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
                                class="btn btn-outline">
                                 1
                             </a>
@@ -338,7 +371,7 @@
                         {% endif %}
 
                         {% for p in start_page..end_page %}
-                            <a href="?page={{ p }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page={{ p }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% if product_priority %}&product_priority={{ product_priority }}{% endif %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
                                class="btn {% if p == page %}btn-primary{% else %}btn-outline{% endif %}">
                                 {{ p }}
                             </a>
@@ -348,7 +381,7 @@
                             {% if end_page < total_pages - 1 %}
                                 <span class="px-3 py-2">...</span>
                             {% endif %}
-                            <a href="?page={{ total_pages }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page={{ total_pages }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% if product_priority %}&product_priority={{ product_priority }}{% endif %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
                                class="btn btn-outline">
                                 {{ total_pages }}
                             </a>
@@ -356,7 +389,7 @@
 
                         {# Next button #}
                         {% if page < total_pages %}
-                            <a href="?page={{ page + 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page={{ page + 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% if product_priority %}&product_priority={{ product_priority }}{% endif %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
                                class="btn btn-outline">
                                 Next
                             </a>

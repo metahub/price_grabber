@@ -34,10 +34,10 @@ class BulkImportController
 
             $parts = explode("\t", $line);
 
-            // Expected format: product_id \t parent_id \t sku \t ean \t site \t site_product_id \t price \t uvp \t site_status \t url \t name \t description
-            if (count($parts) < 10) {
+            // Expected format: product_id \t parent_id \t sku \t ean \t site \t site_product_id \t price \t uvp \t site_status \t product_priority \t url \t name \t description
+            if (count($parts) < 11) {
                 $results['failed']++;
-                $error = "Line " . ($lineNum + 1) . ": Not enough columns (expected at least 10: product_id, parent_id, sku, ean, site, site_product_id, price, uvp, site_status, url)";
+                $error = "Line " . ($lineNum + 1) . ": Not enough columns (expected at least 11: product_id, parent_id, sku, ean, site, site_product_id, price, uvp, site_status, product_priority, url)";
                 $results['errors'][] = $error;
                 Logger::warning('Import line failed', ['line' => $lineNum + 1, 'error' => 'Not enough columns']);
                 continue;
@@ -53,9 +53,10 @@ class BulkImportController
                 'price' => !empty(trim($parts[6])) ? (float)trim($parts[6]) : null,
                 'uvp' => !empty(trim($parts[7])) ? (float)trim($parts[7]) : null,
                 'site_status' => !empty(trim($parts[8])) ? trim($parts[8]) : null,
-                'url' => trim($parts[9]),
-                'name' => isset($parts[10]) && !empty(trim($parts[10])) ? trim($parts[10]) : null,
-                'description' => isset($parts[11]) && !empty(trim($parts[11])) ? trim($parts[11]) : null,
+                'product_priority' => !empty(trim($parts[9])) ? trim($parts[9]) : 'unknown',
+                'url' => trim($parts[10]),
+                'name' => isset($parts[11]) && !empty(trim($parts[11])) ? trim($parts[11]) : null,
+                'description' => isset($parts[12]) && !empty(trim($parts[12])) ? trim($parts[12]) : null,
             ];
 
             // Validate required fields
@@ -111,11 +112,11 @@ class BulkImportController
 
     public function getTemplate()
     {
-        return "product_id\tparent_id\tsku\tean\tsite\tsite_product_id\tprice\tuvp\tsite_status\turl\tname\tdescription";
+        return "product_id\tparent_id\tsku\tean\tsite\tsite_product_id\tprice\tuvp\tsite_status\tproduct_priority\turl\tname\tdescription";
     }
 
     public function getExampleRow()
     {
-        return "PROD001\t\tSKU123\t1234567890123\tamazon\tB08X123\t29.99\t39.99\tactive\thttps://example.com/product\tExample Product\tProduct description";
+        return "PROD001\t\tSKU123\t1234567890123\tamazon\tB08X123\t29.99\t39.99\tactive\twhite\thttps://example.com/product\tExample Product\tProduct description";
     }
 }

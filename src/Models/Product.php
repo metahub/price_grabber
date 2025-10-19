@@ -17,9 +17,9 @@ class Product
     public function create($data)
     {
         $sql = "INSERT INTO products (product_id, parent_id, sku, ean, site, site_product_id,
-                price, uvp, site_status, url, name, description, image_url)
+                price, uvp, site_status, product_priority, url, name, description, image_url)
                 VALUES (:product_id, :parent_id, :sku, :ean, :site, :site_product_id,
-                :price, :uvp, :site_status, :url, :name, :description, :image_url)";
+                :price, :uvp, :site_status, :product_priority, :url, :name, :description, :image_url)";
 
         try {
             $this->db->execute($sql, [
@@ -32,6 +32,7 @@ class Product
                 ':price' => $data['price'] ?? null,
                 ':uvp' => $data['uvp'] ?? null,
                 ':site_status' => $data['site_status'] ?? null,
+                ':product_priority' => $data['product_priority'] ?? 'unknown',
                 ':url' => $data['url'],
                 ':name' => $data['name'] ?? null,
                 ':description' => $data['description'] ?? null,
@@ -55,7 +56,7 @@ class Product
         $params = [':product_id' => $productId];
 
         $allowedFields = ['parent_id', 'sku', 'ean', 'site', 'site_product_id',
-                         'price', 'uvp', 'site_status', 'url', 'name', 'description', 'image_url'];
+                         'price', 'uvp', 'site_status', 'product_priority', 'url', 'name', 'description', 'image_url'];
 
         foreach ($allowedFields as $field) {
             if (array_key_exists($field, $data)) {
@@ -175,6 +176,11 @@ class Product
             $params[':site_status'] = $filters['site_status'];
         }
 
+        if (!empty($filters['product_priority'])) {
+            $sql .= " AND p.product_priority = :product_priority";
+            $params[':product_priority'] = $filters['product_priority'];
+        }
+
         $sql .= " ORDER BY p.product_id ASC";
 
         // Add pagination to SQL before preparing
@@ -263,6 +269,11 @@ class Product
             $params[':site_status'] = $filters['site_status'];
         }
 
+        if (!empty($filters['product_priority'])) {
+            $sql .= " AND p.product_priority = :product_priority";
+            $params[':product_priority'] = $filters['product_priority'];
+        }
+
         $result = $this->db->fetchOne($sql, $params);
         return $result ? (int)$result['total'] : 0;
     }
@@ -299,5 +310,34 @@ class Product
     {
         $sql = "SELECT DISTINCT site_status FROM products WHERE site_status IS NOT NULL ORDER BY site_status";
         return $this->db->fetchAll($sql);
+    }
+
+    public function getProductPriorities()
+    {
+        $sql = "SELECT DISTINCT product_priority FROM products WHERE product_priority IS NOT NULL ORDER BY
+                CASE product_priority
+                    WHEN 'white' THEN 1
+                    WHEN 'grey' THEN 2
+                    WHEN 'black' THEN 3
+                    WHEN 'unknown' THEN 4
+                    ELSE 5
+                END";
+        return $this->db->fetchAll($sql);
+    }
+
+    public function getProductsNeedingScrape($minInterval)
+    {
+        $sql = "SELECT p.*
+                FROM products p
+                LEFT JOIN (
+                    SELECT product_id, MAX(fetched_at) as last_fetch
+                    FROM price_history
+                    GROUP BY product_id
+                ) ph ON p.product_id = ph.product_id
+                WHERE ph.last_fetch IS NULL
+                   OR ph.last_fetch < DATE_SUB(NOW(), INTERVAL :interval SECOND)
+                ORDER BY ph.last_fetch ASC, p.product_id ASC";
+
+        return $this->db->fetchAll($sql, [':interval' => $minInterval]);
     }
 }

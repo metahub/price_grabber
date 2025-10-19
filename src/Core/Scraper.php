@@ -5,6 +5,7 @@ namespace PriceGrabber\Core;
 use PriceGrabber\Models\Product;
 use PriceGrabber\Models\PriceHistory;
 use PriceGrabber\Models\ScraperConfig;
+use PriceGrabber\Models\Settings;
 use DOMDocument;
 use DOMXPath;
 use HeadlessChromium\BrowserFactory;
@@ -16,12 +17,14 @@ class Scraper
     private $productModel;
     private $priceHistoryModel;
     private $scraperConfigModel;
+    private $settingsModel;
     private $userAgent;
     private $timeout;
     private $maxRetries;
     private $delay;
     private $delay202;
     private $delay429;
+    private $minInterval;
 
     // Chrome headless browser settings
     private $chromeEnabled;
@@ -34,19 +37,22 @@ class Scraper
         $this->productModel = new Product();
         $this->priceHistoryModel = new PriceHistory();
         $this->scraperConfigModel = new ScraperConfig();
+        $this->settingsModel = new Settings();
 
-        $this->userAgent = Config::get('SCRAPER_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
-        $this->timeout = (int)Config::get('SCRAPER_TIMEOUT', 30);
-        $this->maxRetries = (int)Config::get('SCRAPER_MAX_RETRIES', 3);
-        $this->delay = (int)Config::get('SCRAPER_DELAY', 1);
-        $this->delay202 = (int)Config::get('SCRAPER_202_DELAY', 30);
-        $this->delay429 = (int)Config::get('SCRAPER_429_DELAY', 5);
+        // Load scraper settings from database
+        $this->userAgent = $this->settingsModel->get('scraper_user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+        $this->timeout = $this->settingsModel->get('scraper_timeout', 30);
+        $this->maxRetries = $this->settingsModel->get('scraper_max_retries', 3);
+        $this->delay = $this->settingsModel->get('scraper_delay', 1);
+        $this->delay202 = $this->settingsModel->get('scraper_202_delay', 30);
+        $this->delay429 = $this->settingsModel->get('scraper_429_delay', 5);
+        $this->minInterval = $this->settingsModel->get('scraper_min_interval', 3600);
 
         // Chrome headless browser configuration
-        $this->chromeEnabled = filter_var(Config::get('CHROME_ENABLED', 'false'), FILTER_VALIDATE_BOOLEAN);
-        $this->chromeBinaryPath = Config::get('CHROME_BINARY_PATH', '/usr/bin/chromium-browser');
-        $this->chromeTimeout = (int)Config::get('CHROME_TIMEOUT', 60);
-        $this->chromeDisableImages = filter_var(Config::get('CHROME_DISABLE_IMAGES', 'true'), FILTER_VALIDATE_BOOLEAN);
+        $this->chromeEnabled = $this->settingsModel->get('chrome_enabled', false);
+        $this->chromeBinaryPath = $this->settingsModel->get('chrome_binary_path', '/usr/bin/chromium-browser');
+        $this->chromeTimeout = $this->settingsModel->get('chrome_timeout', 60);
+        $this->chromeDisableImages = $this->settingsModel->get('chrome_disable_images', true);
     }
 
     public function scrapeUrl($url, $productIdToUpdate = null)
@@ -126,10 +132,29 @@ class Scraper
 
     public function scrapeProducts($filters = [])
     {
-        $products = $this->productModel->getAll($filters);
+        // Get only products that need scraping based on minimum interval
+        $products = $this->productModel->getProductsNeedingScrape($this->minInterval);
+
+        // Apply additional filters if provided
+        if (!empty($filters)) {
+            // Filter the products array based on provided filters
+            $products = array_filter($products, function($product) use ($filters) {
+                if (!empty($filters['site']) && $product['site'] !== $filters['site']) {
+                    return false;
+                }
+                if (!empty($filters['site_status']) && $product['site_status'] !== $filters['site_status']) {
+                    return false;
+                }
+                return true;
+            });
+        }
+
         $results = [];
 
-        Logger::info("Starting batch scrape", ['total_products' => count($products)]);
+        Logger::info("Starting batch scrape", [
+            'total_products' => count($products),
+            'min_interval' => $this->minInterval
+        ]);
 
         foreach ($products as $product) {
             try {
