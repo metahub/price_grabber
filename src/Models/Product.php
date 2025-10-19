@@ -177,12 +177,94 @@ class Product
 
         $sql .= " ORDER BY p.created_at DESC";
 
+        // Add pagination to SQL before preparing
         if (!empty($filters['limit'])) {
             $sql .= " LIMIT :limit";
-            $params[':limit'] = (int)$filters['limit'];
         }
 
-        return $this->db->fetchAll($sql, $params);
+        if (!empty($filters['offset'])) {
+            $sql .= " OFFSET :offset";
+        }
+
+        // Now prepare the complete SQL statement
+        $stmt = $this->db->getConnection()->prepare($sql);
+
+        // Bind all string parameters
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value, \PDO::PARAM_STR);
+        }
+
+        // Bind pagination parameters as integers
+        if (!empty($filters['limit'])) {
+            $stmt->bindValue(':limit', (int)$filters['limit'], \PDO::PARAM_INT);
+        }
+
+        if (!empty($filters['offset'])) {
+            $stmt->bindValue(':offset', (int)$filters['offset'], \PDO::PARAM_INT);
+        }
+
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    public function countAll($filters = [])
+    {
+        $sql = "SELECT COUNT(DISTINCT p.id) as total
+                FROM products p
+                LEFT JOIN products parent ON p.parent_id = parent.product_id";
+
+        $params = [];
+
+        // Handle seller filter with subquery using named parameters
+        if (!empty($filters['sellers']) && is_array($filters['sellers'])) {
+            $sellerPlaceholders = [];
+            foreach ($filters['sellers'] as $index => $seller) {
+                $placeholder = ":seller_{$index}";
+                $sellerPlaceholders[] = $placeholder;
+                $params[$placeholder] = $seller;
+            }
+
+            $sql .= " INNER JOIN (
+                        SELECT DISTINCT product_id
+                        FROM price_history
+                        WHERE seller IN (" . implode(',', $sellerPlaceholders) . ")
+                        AND fetched_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                      ) ph ON p.product_id = ph.product_id";
+        }
+
+        $sql .= " WHERE 1=1";
+
+        if (!empty($filters['search'])) {
+            $searchValue = '%' . $filters['search'] . '%';
+            $sql .= " AND (p.name LIKE :search1 OR p.description LIKE :search2 OR p.product_id LIKE :search3 OR p.sku LIKE :search4 OR p.ean LIKE :search5)";
+            $params[':search1'] = $searchValue;
+            $params[':search2'] = $searchValue;
+            $params[':search3'] = $searchValue;
+            $params[':search4'] = $searchValue;
+            $params[':search5'] = $searchValue;
+        }
+
+        if (isset($filters['parent_id'])) {
+            if ($filters['parent_id'] === 'null') {
+                $sql .= " AND p.parent_id IS NULL";
+            } else {
+                $sql .= " AND p.parent_id = :parent_id";
+                $params[':parent_id'] = $filters['parent_id'];
+            }
+        }
+
+        if (!empty($filters['site'])) {
+            $sql .= " AND p.site = :site";
+            $params[':site'] = $filters['site'];
+        }
+
+        if (!empty($filters['site_status'])) {
+            $sql .= " AND p.site_status = :site_status";
+            $params[':site_status'] = $filters['site_status'];
+        }
+
+        $result = $this->db->fetchOne($sql, $params);
+        return $result ? (int)$result['total'] : 0;
     }
 
     public function getChildren($parentProductId)
