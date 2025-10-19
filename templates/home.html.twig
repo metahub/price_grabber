@@ -49,21 +49,5 @@
             </a>
         </div>
     </div>
-
-    {# Stats Cards (Optional - can be populated later) #}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="card p-4">
-            <h3 class="text-sm font-medium text-muted-foreground">Total Products</h3>
-            <p class="text-3xl font-bold mt-2">{{ stats.total_products|default(0) }}</p>
-        </div>
-        <div class="card p-4">
-            <h3 class="text-sm font-medium text-muted-foreground">Active Scrapers</h3>
-            <p class="text-3xl font-bold mt-2">{{ stats.active_scrapers|default(0) }}</p>
-        </div>
-        <div class="card p-4">
-            <h3 class="text-sm font-medium text-muted-foreground">Last Scrape</h3>
-            <p class="text-3xl font-bold mt-2">{{ stats.last_scrape|default('Never') }}</p>
-        </div>
-    </div>
 </div>
 {% endblock %}
