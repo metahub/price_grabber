@@ -15,35 +15,12 @@
                     name="search"
                     placeholder="Search products..."
                     value="{{ search }}"
-                    class="input flex-1 min-w-[250px]"
+                    class="input flex-1 min-w-[200px]"
                 />
 
-                <select name="parent_filter" class="select w-auto">
-                    <option value="">All Products</option>
-                    <option value="parents_only" {% if parent_filter == 'parents_only' %}selected{% endif %}>
-                        Parent Products Only
-                    </option>
-                </select>
-
-                <select name="per_page" class="select w-auto">
-                    <option value="25" {% if per_page == 25 %}selected{% endif %}>25 per page</option>
-                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50 per page</option>
-                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100 per page</option>
-                </select>
-
-                <button type="submit" class="btn btn-primary">
-                    Filter
-                </button>
-
-                <a href="products.php" class="btn btn-outline">
-                    Clear
-                </a>
-            </div>
-
-            {% if all_sellers is not empty %}
-                <div class="mb-3">
-                    <label class="block text-sm font-medium mb-2">Filter by Buybox Owner (Seller):</label>
-                    <div class="relative">
+                {% if all_sellers is not empty %}
+                    <div class="relative flex-1 min-w-[200px]">
+                        <div class="relative">
                         {# Hidden inputs to store selected sellers #}
                         <div id="seller-inputs">
                             {% for seller in selected_sellers %}
@@ -120,8 +97,30 @@
                             </div>
                         </div>
                     </div>
-                </div>
-            {% endif %}
+                    </div>
+                {% endif %}
+
+                <select name="parent_filter" class="select w-auto">
+                    <option value="">All Products</option>
+                    <option value="parents_only" {% if parent_filter == 'parents_only' %}selected{% endif %}>
+                        Parent Products Only
+                    </option>
+                </select>
+
+                <select name="per_page" class="select w-auto">
+                    <option value="25" {% if per_page == 25 %}selected{% endif %}>25 per page</option>
+                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50 per page</option>
+                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100 per page</option>
+                </select>
+
+                <button type="submit" class="btn btn-primary">
+                    Filter
+                </button>
+
+                <a href="products.php" class="btn btn-outline">
+                    Clear
+                </a>
+            </div>
         </form>
 
         {# JavaScript for combobox functionality #}
