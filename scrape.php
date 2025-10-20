@@ -1,6 +1,9 @@
 #!/usr/bin/env php
 <?php
 
+// Increase memory limit for scraper operations (especially Chrome headless)
+ini_set('memory_limit', '512M');
+
 require_once __DIR__ . '/bootstrap.php';
 
 use PriceGrabber\Core\Scraper;
@@ -10,6 +13,13 @@ use PriceGrabber\Models\ScraperRun;
 
 // Parse command line arguments
 $options = getopt('u:an:', ['url:', 'all', 'limit:']);
+
+// Log memory limit for debugging
+$memoryLimit = ini_get('memory_limit');
+Logger::info("Scraper starting", [
+    'memory_limit' => $memoryLimit,
+    'pid' => getmypid()
+]);
 
 $scraper = new Scraper();
 

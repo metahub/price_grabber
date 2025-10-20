@@ -345,10 +345,15 @@ class Scraper
             return false;
         }
 
+        $memoryBefore = memory_get_usage(true);
+
         Logger::info("Fetching URL with headless Chrome", [
             'url' => $url,
-            'chrome_path' => $this->chromeBinaryPath
+            'chrome_path' => $this->chromeBinaryPath,
+            'memory_usage_mb' => round($memoryBefore / 1024 / 1024, 2)
         ]);
+
+        $browser = null;
 
         try {
             $browserFactory = new BrowserFactory($this->chromeBinaryPath);
@@ -380,35 +385,51 @@ class Scraper
             // Get the HTML content
             $html = $page->getHtml();
 
+            $memoryAfter = memory_get_usage(true);
+            $memoryUsed = $memoryAfter - $memoryBefore;
+
             Logger::info("Successfully fetched URL with Chrome", [
                 'url' => $url,
-                'html_length' => strlen($html)
+                'html_length' => strlen($html),
+                'memory_used_mb' => round($memoryUsed / 1024 / 1024, 2),
+                'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2)
             ]);
-
-            // Close browser
-            $browser->close();
 
             return $html;
 
         } catch (CommunicationException $e) {
             Logger::error("Chrome communication error", [
                 'url' => $url,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2)
             ]);
             return false;
         } catch (NoResponseAvailable $e) {
             Logger::error("Chrome no response error", [
                 'url' => $url,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2)
             ]);
             return false;
         } catch (\Exception $e) {
             Logger::error("Chrome error", [
                 'url' => $url,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'error_type' => get_class($e),
+                'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2)
             ]);
             return false;
+        } finally {
+            // Always try to close the browser, even if an error occurred
+            if ($browser !== null) {
+                try {
+                    $browser->close();
+                } catch (\Exception $e) {
+                    Logger::warning("Failed to close Chrome browser", [
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
         }
     }
 
