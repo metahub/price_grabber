@@ -421,17 +421,47 @@ class Scraper
         ]);
 
         $browser = null;
+        $userDataDir = null;
 
         try {
             $browserFactory = new BrowserFactory($this->chromeBinaryPath);
 
-            // Launch browser with options
+            // Create user data directory for Chrome (prevents ProcessSingleton errors)
+            $userDataDir = sys_get_temp_dir() . '/chrome_data_' . getmypid();
+            if (!is_dir($userDataDir)) {
+                if (!mkdir($userDataDir, 0777, true)) {
+                    Logger::error("Failed to create Chrome user data directory", [
+                        'dir' => $userDataDir
+                    ]);
+                }
+                // Ensure directory is fully writable
+                chmod($userDataDir, 0777);
+            }
+
+            // Launch browser with options optimized for headless server operation
             $browser = $browserFactory->createBrowser([
                 'headless' => true,
-                'noSandbox' => true, // Required for some server environments
+                'noSandbox' => true, // Required for server environments
                 'keepAlive' => false,
                 'windowSize' => [1920, 1080],
                 'userAgent' => $this->userAgent,
+                'customFlags' => [
+                    '--disable-dev-shm-usage',           // Overcome limited resource problems
+                    '--disable-setuid-sandbox',          // Additional sandbox disabling
+                    '--disable-gpu',                     // GPU not available on servers
+                    '--no-first-run',                    // Skip first run tasks
+                    '--no-default-browser-check',        // Don't check if default browser
+                    '--disable-software-rasterizer',     // Disable software rasterizer
+                    '--disable-extensions',              // Disable extensions
+                    '--disable-background-networking',   // Reduce background activity
+                    '--disable-sync',                    // Disable syncing to a Google account
+                    '--metrics-recording-only',          // Don't send metrics
+                    '--disable-breakpad',                // Disable crash reporting
+                    '--mute-audio',                      // No audio needed
+                    '--disable-notifications',           // No notifications
+                    '--single-process',                  // Run as single process (fixes ProcessSingleton)
+                    '--user-data-dir=' . $userDataDir,   // Dedicated user data directory
+                ],
             ]);
 
             // Create a new page
@@ -493,6 +523,19 @@ class Scraper
                     $browser->close();
                 } catch (\Exception $e) {
                     Logger::warning("Failed to close Chrome browser", [
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            // Clean up Chrome user data directory
+            if ($userDataDir !== null && is_dir($userDataDir)) {
+                try {
+                    // Remove the temporary user data directory
+                    $this->removeDirectory($userDataDir);
+                } catch (\Exception $e) {
+                    Logger::warning("Failed to clean up Chrome user data directory", [
+                        'dir' => $userDataDir,
                         'error' => $e->getMessage()
                     ]);
                 }
@@ -629,5 +672,26 @@ class Scraper
         }
 
         return 'unknown';
+    }
+
+    /**
+     * Recursively remove a directory and its contents
+     *
+     * @param string $dir Directory path to remove
+     * @return bool True on success
+     */
+    private function removeDirectory($dir)
+    {
+        if (!is_dir($dir)) {
+            return false;
+        }
+
+        $files = array_diff(scandir($dir), ['.', '..']);
+        foreach ($files as $file) {
+            $path = $dir . '/' . $file;
+            is_dir($path) ? $this->removeDirectory($path) : unlink($path);
+        }
+
+        return rmdir($dir);
     }
 }
