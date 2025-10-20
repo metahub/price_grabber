@@ -48,6 +48,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error = 'Invalid user ID';
         }
+    } elseif ($action === 'change_password') {
+        $userId = (int)($_POST['user_id'] ?? 0);
+        $newPassword = $_POST['new_password'] ?? '';
+
+        if ($userId <= 0) {
+            $error = 'Invalid user ID';
+        } elseif (empty($newPassword)) {
+            $error = 'Password is required';
+        } else {
+            $result = $userController->changePassword($userId, $newPassword);
+
+            if ($result['success']) {
+                $success = 'Password changed successfully';
+            } else {
+                $error = $result['error'];
+            }
+        }
     }
 }
 

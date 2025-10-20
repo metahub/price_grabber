@@ -48,4 +48,19 @@ class UserController
 
         return $result;
     }
+
+    public function changePassword($userId, $newPassword)
+    {
+        Logger::info('Changing password for user', ['userId' => $userId]);
+
+        $result = $this->auth->changePassword($userId, $newPassword);
+
+        if ($result['success']) {
+            Logger::info('Password changed successfully', ['userId' => $userId]);
+        } else {
+            Logger::warning('Password change failed', ['userId' => $userId, 'error' => $result['error']]);
+        }
+
+        return $result;
+    }
 }

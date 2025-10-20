@@ -119,6 +119,20 @@ class Auth
         }
     }
 
+    public function changePassword($userId, $newPassword)
+    {
+        try {
+            $this->auth->admin()->changePasswordForUserById($userId, $newPassword);
+            return ['success' => true];
+        } catch (\Delight\Auth\UnknownIdException $e) {
+            return ['success' => false, 'error' => 'User not found'];
+        } catch (\Delight\Auth\InvalidPasswordException $e) {
+            return ['success' => false, 'error' => 'Invalid password (min. 8 characters)'];
+        } catch (\Exception $e) {
+            return ['success' => false, 'error' => 'Failed to change password: ' . $e->getMessage()];
+        }
+    }
+
     public function getAllUsers()
     {
         $db = Database::getInstance();
