@@ -426,16 +426,10 @@ class Scraper
         try {
             $browserFactory = new BrowserFactory($this->chromeBinaryPath);
 
-            // Create user data directory for Chrome (prevents ProcessSingleton errors)
-            $userDataDir = sys_get_temp_dir() . '/chrome_data_' . getmypid();
+            // Create user data directory for Chrome (use /var/cache to avoid AppArmor issues)
+            $userDataDir = '/var/cache/chromium-scraper-' . getmypid();
             if (!is_dir($userDataDir)) {
-                if (!mkdir($userDataDir, 0777, true)) {
-                    Logger::error("Failed to create Chrome user data directory", [
-                        'dir' => $userDataDir
-                    ]);
-                }
-                // Ensure directory is fully writable
-                chmod($userDataDir, 0777);
+                mkdir($userDataDir, 0777, true);
             }
 
             // Launch browser with options optimized for headless server operation
@@ -460,6 +454,7 @@ class Scraper
                     '--mute-audio',                      // No audio needed
                     '--disable-notifications',           // No notifications
                     '--single-process',                  // Run as single process (fixes ProcessSingleton)
+                    '--disable-features=ProcessSingleton', // Disable ProcessSingleton lock mechanism
                     '--user-data-dir=' . $userDataDir,   // Dedicated user data directory
                 ],
             ]);
