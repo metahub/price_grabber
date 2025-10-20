@@ -16,20 +16,16 @@ class ScraperLock
 
     /**
      * Try to acquire a scraper lock
+     * In parallel mode, multiple locks can exist (up to max_concurrent_scrapers)
      *
-     * @return bool True if lock was acquired, false if already locked
+     * @return bool True if lock was acquired, false if max limit reached
      */
     public function acquireLock()
     {
         // First, clean any stale locks
         $this->cleanStaleLocks();
 
-        // Check if there's an active lock
-        if ($this->isLocked()) {
-            return false;
-        }
-
-        // Acquire the lock
+        // Acquire the lock (multiple locks allowed in parallel mode)
         $pid = getmypid();
         $hostname = gethostname();
 
@@ -173,6 +169,25 @@ class ScraperLock
 
         // If ps returns 0, process exists
         return $result === 0 && count($output) > 1;
+    }
+
+    /**
+     * Count active scraper locks (where process is still running)
+     *
+     * @return int Number of active scraper instances
+     */
+    public function countActiveLocks()
+    {
+        $locks = $this->getAllLocks();
+        $activeCount = 0;
+
+        foreach ($locks as $lock) {
+            if ($this->isProcessRunning($lock['process_id'])) {
+                $activeCount++;
+            }
+        }
+
+        return $activeCount;
     }
 
     /**

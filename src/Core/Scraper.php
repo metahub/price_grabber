@@ -6,6 +6,7 @@ use PriceGrabber\Models\Product;
 use PriceGrabber\Models\PriceHistory;
 use PriceGrabber\Models\ScraperConfig;
 use PriceGrabber\Models\Settings;
+use PriceGrabber\Models\ItemLock;
 use DOMDocument;
 use DOMXPath;
 use HeadlessChromium\BrowserFactory;
@@ -18,6 +19,7 @@ class Scraper
     private $priceHistoryModel;
     private $scraperConfigModel;
     private $settingsModel;
+    private $itemLockModel;
     private $userAgent;
     private $timeout;
     private $maxRetries;
@@ -25,6 +27,7 @@ class Scraper
     private $delay202;
     private $delay429;
     private $minInterval;
+    private $itemLockTimeout;
 
     // Chrome headless browser settings
     private $chromeEnabled;
@@ -36,12 +39,17 @@ class Scraper
     private $botChallenges = 0;
     private $successfulBypasses = 0;
 
+    // Parallel scraping support
+    private $currentRunId = null;
+    private $itemsSkipped = 0; // Items skipped because locked by another scraper
+
     public function __construct()
     {
         $this->productModel = new Product();
         $this->priceHistoryModel = new PriceHistory();
         $this->scraperConfigModel = new ScraperConfig();
         $this->settingsModel = new Settings();
+        $this->itemLockModel = new ItemLock();
 
         // Load scraper settings from database
         $this->userAgent = $this->settingsModel->get('scraper_user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
@@ -51,12 +59,23 @@ class Scraper
         $this->delay202 = $this->settingsModel->get('scraper_202_delay', 30);
         $this->delay429 = $this->settingsModel->get('scraper_429_delay', 5);
         $this->minInterval = $this->settingsModel->get('scraper_min_interval', 3600);
+        $this->itemLockTimeout = $this->settingsModel->get('item_lock_timeout_seconds', 180);
 
         // Chrome headless browser configuration
         $this->chromeEnabled = $this->settingsModel->get('chrome_enabled', false);
         $this->chromeBinaryPath = $this->settingsModel->get('chrome_binary_path', '/usr/bin/chromium-browser');
         $this->chromeTimeout = $this->settingsModel->get('chrome_timeout', 60);
         $this->chromeDisableImages = $this->settingsModel->get('chrome_disable_images', true);
+    }
+
+    /**
+     * Set the current scraper run ID (for item locking)
+     *
+     * @param int $runId Scraper run ID
+     */
+    public function setRunId($runId)
+    {
+        $this->currentRunId = $runId;
     }
 
     public function scrapeUrl($url, $productIdToUpdate = null)
@@ -136,12 +155,16 @@ class Scraper
 
     public function scrapeProducts($filters = [], $limit = null)
     {
-        // Reset bot tracking counters for this run
+        // Reset counters for this run
         $this->botChallenges = 0;
         $this->successfulBypasses = 0;
+        $this->itemsSkipped = 0;
 
         // Get only products that need scraping based on minimum interval
-        $products = $this->productModel->getProductsNeedingScrape($this->minInterval, $limit);
+        // In parallel mode, we fetch more items than the limit to ensure enough work
+        // (some items may be locked by other scrapers)
+        $fetchLimit = $limit ? $limit * 3 : null; // Fetch 3x items for buffer
+        $products = $this->productModel->getProductsNeedingScrape($this->minInterval, $fetchLimit);
 
         // Apply additional filters if provided
         if (!empty($filters)) {
@@ -158,17 +181,53 @@ class Scraper
         }
 
         $results = [];
+        $itemsProcessed = 0;
 
         Logger::info("Starting batch scrape", [
-            'total_products' => count($products),
+            'total_products_available' => count($products),
             'min_interval' => $this->minInterval,
-            'limit' => $limit
+            'limit' => $limit,
+            'run_id' => $this->currentRunId
         ]);
 
         foreach ($products as $product) {
+            // Check if we've reached the limit (if specified)
+            if ($limit && $itemsProcessed >= $limit) {
+                Logger::info("Reached scrape limit, stopping", [
+                    'limit' => $limit,
+                    'processed' => $itemsProcessed
+                ]);
+                break;
+            }
+
+            // Try to acquire lock on this item (parallel scraping support)
+            if ($this->currentRunId) {
+                $lockAcquired = $this->itemLockModel->tryLockItem(
+                    $product['product_id'],
+                    $this->currentRunId,
+                    getmypid(),
+                    $this->itemLockTimeout
+                );
+
+                if (!$lockAcquired) {
+                    // Another scraper is processing this item, skip it
+                    $this->itemsSkipped++;
+                    Logger::debug("Item locked by another scraper, skipping", [
+                        'product_id' => $product['product_id']
+                    ]);
+                    continue;
+                }
+            }
+
             try {
                 $result = $this->scrapeUrl($product['url'], $product['product_id']);
                 $results[] = $result;
+                $itemsProcessed++;
+
+                // Release the lock after successful scrape
+                if ($this->currentRunId) {
+                    $this->itemLockModel->releaseLock($product['product_id']);
+                }
 
                 // Delay between requests
                 if ($this->delay > 0) {
@@ -185,12 +244,19 @@ class Scraper
                     'product_id' => $product['product_id'],
                     'error' => $e->getMessage()
                 ];
+                $itemsProcessed++;
+
+                // Release the lock even on error
+                if ($this->currentRunId) {
+                    $this->itemLockModel->releaseLock($product['product_id']);
+                }
             }
         }
 
         Logger::info("Batch scrape completed", [
             'total' => count($results),
             'failed' => count(array_filter($results, fn($r) => isset($r['error']))),
+            'items_skipped' => $this->itemsSkipped,
             'bot_challenges' => $this->botChallenges,
             'successful_bypasses' => $this->successfulBypasses
         ]);
@@ -198,7 +264,8 @@ class Scraper
         return [
             'results' => $results,
             'bot_challenges' => $this->botChallenges,
-            'successful_bypasses' => $this->successfulBypasses
+            'successful_bypasses' => $this->successfulBypasses,
+            'items_skipped' => $this->itemsSkipped
         ];
     }
 

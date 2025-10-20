@@ -10,6 +10,8 @@ use PriceGrabber\Core\Scraper;
 use PriceGrabber\Core\Logger;
 use PriceGrabber\Models\ScraperLock;
 use PriceGrabber\Models\ScraperRun;
+use PriceGrabber\Models\ItemLock;
+use PriceGrabber\Models\Settings;
 
 // Parse command line arguments
 $options = getopt('u:an:', ['url:', 'all', 'limit:']);
@@ -34,20 +36,28 @@ try {
         echo "Success!\n";
         print_r($result);
     } elseif (isset($options['a']) || isset($options['all']) || isset($options['n']) || isset($options['limit'])) {
-        // Check for existing lock
-        $lockManager = new ScraperLock();
+        // Load settings for parallel scraping
+        $settingsModel = new Settings();
+        $maxConcurrentScrapers = $settingsModel->get('max_concurrent_scrapers', 5);
+        $itemLockTimeout = $settingsModel->get('item_lock_timeout_seconds', 180);
 
-        if ($lockManager->isLocked()) {
-            $currentLock = $lockManager->getCurrentLock();
-            Logger::info("Scraper already running, skipping execution", [
-                'locked_pid' => $currentLock['process_id'],
-                'locked_since' => $currentLock['started_at'],
+        // Check if max concurrent scrapers limit reached
+        $lockManager = new ScraperLock();
+        $activeLocks = $lockManager->countActiveLocks();
+
+        if ($activeLocks >= $maxConcurrentScrapers) {
+            Logger::info("Max concurrent scrapers limit reached, skipping execution", [
+                'active_scrapers' => $activeLocks,
+                'max_allowed' => $maxConcurrentScrapers,
                 'current_pid' => getmypid()
             ]);
-            echo "Scraper is already running (PID: {$currentLock['process_id']}, started: {$currentLock['started_at']})\n";
+            echo "Max concurrent scrapers limit reached ({$activeLocks}/{$maxConcurrentScrapers})\n";
             echo "Skipping execution.\n";
             exit(0);
         }
+
+        // Note: We don't check isLocked() anymore because we allow multiple instances
+        // The max concurrent limit is enforced above
 
         // Try to acquire lock
         if (!$lockManager->acquireLock()) {
@@ -56,8 +66,9 @@ try {
             exit(1);
         }
 
-        // Initialize run tracker
+        // Initialize run tracker and item lock manager
         $runTracker = new ScraperRun();
+        $itemLockManager = new ItemLock();
         $runId = null;
 
         try {
@@ -72,13 +83,32 @@ try {
             // Start tracking the run
             $runId = $runTracker->startRun($limit);
 
+            // Clean stale item locks before starting (for parallel scraping)
+            $staleLocksCleaned = $itemLockManager->cleanStaleLocks($itemLockTimeout);
+            if ($staleLocksCleaned > 0) {
+                Logger::info("Cleaned stale item locks", [
+                    'count' => $staleLocksCleaned,
+                    'run_id' => $runId
+                ]);
+            }
+
+            // Set the run ID on the scraper for item locking
+            $scraper->setRunId($runId);
+
             // Scrape products (all or limited)
             if ($limit) {
-                echo "Scraping {$limit} products...\n";
-                Logger::info("Starting scrape with limit", ['limit' => $limit, 'run_id' => $runId]);
+                echo "Scraping up to {$limit} products (parallel mode)...\n";
+                Logger::info("Starting scrape with limit", [
+                    'limit' => $limit,
+                    'run_id' => $runId,
+                    'active_scrapers' => $activeLocks + 1
+                ]);
             } else {
-                echo "Scraping all products...\n";
-                Logger::info("Starting scrape all products", ['run_id' => $runId]);
+                echo "Scraping all products (parallel mode)...\n";
+                Logger::info("Starting scrape all products", [
+                    'run_id' => $runId,
+                    'active_scrapers' => $activeLocks + 1
+                ]);
             }
 
             $scrapeResult = $scraper->scrapeProducts([], $limit);
@@ -86,6 +116,7 @@ try {
             $results = $scrapeResult['results'];
             $botChallenges = $scrapeResult['bot_challenges'];
             $successfulBypasses = $scrapeResult['successful_bypasses'];
+            $itemsSkipped = $scrapeResult['items_skipped'];
 
             $success = count(array_filter($results, fn($r) => !isset($r['error'])));
             $failed = count($results) - $success;
@@ -98,6 +129,9 @@ try {
             echo "Total: {$total} products\n";
             echo "Success: {$success}\n";
             echo "Failed: {$failed}\n";
+            if ($itemsSkipped > 0) {
+                echo "Skipped (locked by other scrapers): {$itemsSkipped}\n";
+            }
             if ($botChallenges > 0) {
                 echo "Bot Challenges: {$botChallenges}\n";
                 echo "Successful Bypasses: {$successfulBypasses}\n";
@@ -108,6 +142,7 @@ try {
                 'total' => $total,
                 'success' => $success,
                 'failed' => $failed,
+                'items_skipped' => $itemsSkipped,
                 'limit' => $limit,
                 'bot_challenges' => $botChallenges,
                 'successful_bypasses' => $successfulBypasses
@@ -119,7 +154,12 @@ try {
             }
             throw $e; // Re-throw to be caught by outer try-catch
         } finally {
-            // Always release the lock, even if an error occurs
+            // Always release all item locks for this run
+            if ($runId) {
+                $itemLockManager->releaseAllLocks($runId);
+            }
+
+            // Always release the scraper lock, even if an error occurs
             $lockManager->releaseLock();
         }
     } else {
