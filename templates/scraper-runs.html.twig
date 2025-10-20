@@ -1,0 +1,191 @@
+{% extends "layout.html.twig" %}
+
+{% block title %}Scraper Runs - Price Grabber{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    {# Statistics Cards #}
+    {% if statistics %}
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div class="card p-4">
+            <div class="text-sm text-muted-foreground mb-1">Total Runs</div>
+            <div class="text-2xl font-bold">{{ statistics.total_runs|number_format(0) }}</div>
+        </div>
+        <div class="card p-4">
+            <div class="text-sm text-muted-foreground mb-1">Items Processed</div>
+            <div class="text-2xl font-bold text-green-600">{{ statistics.total_items_processed|number_format(0) }}</div>
+        </div>
+        <div class="card p-4">
+            <div class="text-sm text-muted-foreground mb-1">Bot Challenges</div>
+            <div class="text-2xl font-bold text-orange-600">{{ statistics.total_bot_challenges|number_format(0) }}</div>
+            {% if statistics.total_bot_challenges > 0 %}
+                {% set bypass_rate = (statistics.total_successful_bypasses / statistics.total_bot_challenges * 100)|round(0) %}
+                <div class="text-xs text-muted-foreground">{{ bypass_rate }}% bypassed</div>
+            {% endif %}
+        </div>
+        <div class="card p-4">
+            <div class="text-sm text-muted-foreground mb-1">Avg Duration</div>
+            <div class="text-2xl font-bold">{{ (statistics.avg_duration_seconds / 60)|number_format(1) }} min</div>
+        </div>
+        <div class="card p-4">
+            <div class="text-sm text-muted-foreground mb-1">Avg Items/Min</div>
+            <div class="text-2xl font-bold">{{ statistics.avg_items_per_minute|number_format(1) }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    {# Runs Table #}
+    <div class="card p-6">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-semibold">Scraper Run History</h2>
+        </div>
+
+        {% if runs is empty %}
+            <div class="text-center py-12">
+                <p class="text-muted-foreground">No scraper runs found.</p>
+            </div>
+        {% else %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b">
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">ID</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Started</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Ended</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Duration</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Items</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Items/Min</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Bot Detection</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for run in runs %}
+                            <tr class="border-b hover:bg-muted/50 transition-colors">
+                                <td class="py-3 px-4 text-sm">#{{ run.id }}</td>
+                                <td class="py-3 px-4 text-sm">{{ run.started_at|date('Y-m-d H:i:s') }}</td>
+                                <td class="py-3 px-4 text-sm">
+                                    {% if run.ended_at %}
+                                        {{ run.ended_at|date('Y-m-d H:i:s') }}
+                                    {% else %}
+                                        <span class="text-muted-foreground">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 px-4 text-sm">
+                                    {% if run.duration_seconds %}
+                                        {% set minutes = (run.duration_seconds / 60)|round(1) %}
+                                        {{ minutes }} min
+                                    {% else %}
+                                        <span class="text-muted-foreground">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 px-4 text-sm">
+                                    <div>
+                                        <span class="text-green-600 font-medium">{{ run.items_processed }}</span>
+                                        {% if run.items_failed > 0 %}
+                                            / <span class="text-red-600">{{ run.items_failed }}</span>
+                                        {% endif %}
+                                        <span class="text-muted-foreground">of {{ run.items_total }}</span>
+                                    </div>
+                                    {% if run.limit_parameter %}
+                                        <div class="text-xs text-muted-foreground">Limit: {{ run.limit_parameter }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 px-4 text-sm">
+                                    {% if run.duration_seconds and run.duration_seconds > 0 %}
+                                        {% set items_per_min = (run.items_processed / (run.duration_seconds / 60))|round(1) %}
+                                        {{ items_per_min }}
+                                    {% else %}
+                                        <span class="text-muted-foreground">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 px-4 text-sm">
+                                    {% if run.bot_challenges > 0 %}
+                                        <div>
+                                            <span class="text-orange-600 font-medium">{{ run.bot_challenges }}</span>
+                                            <span class="text-muted-foreground text-xs">challenges</span>
+                                        </div>
+                                        {% if run.successful_bypasses > 0 %}
+                                            <div class="text-xs">
+                                                <span class="text-green-600 font-medium">{{ run.successful_bypasses }}</span>
+                                                <span class="text-muted-foreground">bypassed</span>
+                                            </div>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted-foreground">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 px-4">
+                                    {% if run.status == 'completed' %}
+                                        <span class="badge border-transparent bg-green-600 text-white">Completed</span>
+                                    {% elseif run.status == 'running' %}
+                                        <span class="badge border-transparent bg-blue-500 text-white">Running</span>
+                                    {% elseif run.status == 'failed' %}
+                                        <span class="badge badge-danger">Failed</span>
+                                    {% else %}
+                                        <span class="badge badge-outline">{{ run.status|capitalize }}</span>
+                                    {% endif %}
+                                    {% if run.error_message %}
+                                        <div class="text-xs text-red-600 mt-1" title="{{ run.error_message }}">
+                                            {{ run.error_message|slice(0, 50) }}{% if run.error_message|length > 50 %}...{% endif %}
+                                        </div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {# Pagination #}
+            <div class="mt-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="text-sm text-muted-foreground">
+                    Showing {{ ((page - 1) * per_page) + 1 }} to {{ min(page * per_page, total_runs) }} of {{ total_runs }} run(s)
+                </div>
+
+                {% if total_pages > 1 %}
+                    <div class="flex gap-2">
+                        {# Previous button #}
+                        {% if page > 1 %}
+                            <a href="?page={{ page - 1 }}" class="btn btn-outline">
+                                Previous
+                            </a>
+                        {% endif %}
+
+                        {# Page numbers #}
+                        {% set start_page = max(1, page - 2) %}
+                        {% set end_page = min(total_pages, page + 2) %}
+
+                        {% if start_page > 1 %}
+                            <a href="?page=1" class="btn btn-outline">1</a>
+                            {% if start_page > 2 %}
+                                <span class="px-3 py-2">...</span>
+                            {% endif %}
+                        {% endif %}
+
+                        {% for p in start_page..end_page %}
+                            <a href="?page={{ p }}" class="btn {% if p == page %}btn-primary{% else %}btn-outline{% endif %}">
+                                {{ p }}
+                            </a>
+                        {% endfor %}
+
+                        {% if end_page < total_pages %}
+                            {% if end_page < total_pages - 1 %}
+                                <span class="px-3 py-2">...</span>
+                            {% endif %}
+                            <a href="?page={{ total_pages }}" class="btn btn-outline">{{ total_pages }}</a>
+                        {% endif %}
+
+                        {# Next button #}
+                        {% if page < total_pages %}
+                            <a href="?page={{ page + 1 }}" class="btn btn-outline">
+                                Next
+                            </a>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

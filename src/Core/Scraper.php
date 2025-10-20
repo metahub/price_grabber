@@ -32,6 +32,10 @@ class Scraper
     private $chromeTimeout;
     private $chromeDisableImages;
 
+    // Bot detection tracking
+    private $botChallenges = 0;
+    private $successfulBypasses = 0;
+
     public function __construct()
     {
         $this->productModel = new Product();
@@ -132,6 +136,10 @@ class Scraper
 
     public function scrapeProducts($filters = [], $limit = null)
     {
+        // Reset bot tracking counters for this run
+        $this->botChallenges = 0;
+        $this->successfulBypasses = 0;
+
         // Get only products that need scraping based on minimum interval
         $products = $this->productModel->getProductsNeedingScrape($this->minInterval, $limit);
 
@@ -182,10 +190,16 @@ class Scraper
 
         Logger::info("Batch scrape completed", [
             'total' => count($results),
-            'failed' => count(array_filter($results, fn($r) => isset($r['error'])))
+            'failed' => count(array_filter($results, fn($r) => isset($r['error']))),
+            'bot_challenges' => $this->botChallenges,
+            'successful_bypasses' => $this->successfulBypasses
         ]);
 
-        return $results;
+        return [
+            'results' => $results,
+            'bot_challenges' => $this->botChallenges,
+            'successful_bypasses' => $this->successfulBypasses
+        ];
     }
 
     private function fetchUrl($url)
@@ -237,6 +251,9 @@ class Scraper
                                   $responseHeaders['x-amzn-waf-action'] === 'challenge';
 
                 if ($isWafChallenge) {
+                    // Increment bot challenge counter
+                    $this->botChallenges++;
+
                     Logger::warning("AWS WAF bot challenge detected (202)", [
                         'url' => $url,
                         'waf_action' => $responseHeaders['x-amzn-waf-action']
@@ -250,6 +267,9 @@ class Scraper
                     $chromeHtml = $this->fetchUrlWithChrome($url);
 
                     if ($chromeHtml) {
+                        // Increment successful bypass counter
+                        $this->successfulBypasses++;
+
                         Logger::info("Successfully bypassed WAF with Chrome", ['url' => $url]);
                         return $chromeHtml;
                     }
