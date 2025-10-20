@@ -439,6 +439,7 @@ class Scraper
                 'keepAlive' => false,
                 'windowSize' => [1920, 1080],
                 'userAgent' => $this->userAgent,
+                'connectionDelay' => $this->chromeTimeout * 1000000,    // Timeout in microseconds
                 'customFlags' => [
                     '--disable-dev-shm-usage',           // Overcome limited resource problems
                     '--disable-setuid-sandbox',          // Additional sandbox disabling
