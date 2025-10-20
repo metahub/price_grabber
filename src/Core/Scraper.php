@@ -472,8 +472,21 @@ class Scraper
             // Navigate to the URL
             $navigation = $page->navigate($url);
 
-            // Wait for page to load (with timeout)
-            $navigation->waitForNavigation('networkIdle', $this->chromeTimeout * 1000);
+            // Wait for page to load - use DOMContentLoaded instead of networkIdle
+            // networkIdle can hang forever on WAF challenge pages that keep polling
+            try {
+                $navigation->waitForNavigation('DOMContentLoaded', $this->chromeTimeout * 1000);
+
+                // Wait a bit extra for JavaScript to execute (WAF challenges often use JS)
+                // This gives the page time to solve any challenges or load dynamic content
+                sleep(3);
+            } catch (\Exception $e) {
+                Logger::warning("Chrome navigation timeout, attempting to get HTML anyway", [
+                    'url' => $url,
+                    'error' => $e->getMessage()
+                ]);
+                // Continue anyway - the page might have loaded enough content
+            }
 
             // Get the HTML content
             $html = $page->getHtml();
