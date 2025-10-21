@@ -21,10 +21,7 @@ class Scraper
     private $settingsModel;
     private $itemLockModel;
     private $userAgent;
-    private $timeout;
-    private $maxRetries;
     private $delay;
-    private $delay202;
     private $minInterval;
     private $itemLockTimeout;
 
@@ -52,10 +49,7 @@ class Scraper
 
         // Load scraper settings from database
         $this->userAgent = $this->settingsModel->get('scraper_user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
-        $this->timeout = $this->settingsModel->get('scraper_timeout', 30);
-        $this->maxRetries = $this->settingsModel->get('scraper_max_retries', 3);
         $this->delay = $this->settingsModel->get('scraper_delay', 1);
-        $this->delay202 = $this->settingsModel->get('scraper_202_delay', 30);
         $this->minInterval = $this->settingsModel->get('scraper_min_interval', 3600);
         $this->itemLockTimeout = $this->settingsModel->get('item_lock_timeout_seconds', 180);
 
@@ -269,146 +263,10 @@ class Scraper
 
     private function fetchUrl($url)
     {
-        $ch = curl_init();
-
-        // Array to capture response headers
-        $responseHeaders = [];
-
-        // Header callback to capture response headers
-        $headerCallback = function($curl, $header) use (&$responseHeaders) {
-            $len = strlen($header);
-            $header = explode(':', $header, 2);
-            if (count($header) < 2) { // ignore invalid headers
-                return $len;
-            }
-            $responseHeaders[strtolower(trim($header[0]))] = trim($header[1]);
-            return $len;
-        };
-
-        // Build realistic browser headers to avoid bot detection
-        $headers = [
-            'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-            'Accept-Language: de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Accept-Encoding: gzip, deflate, br',
-            'Cache-Control: max-age=0',
-            'Upgrade-Insecure-Requests: 1',
-            'Sec-Fetch-Dest: document',
-            'Sec-Fetch-Mode: navigate',
-            'Sec-Fetch-Site: none',
-            'Sec-Fetch-User: ?1',
-        ];
-
-        curl_setopt_array($ch, [
-            CURLOPT_URL => $url,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS => 5,
-            CURLOPT_TIMEOUT => $this->timeout,
-            CURLOPT_USERAGENT => $this->userAgent,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_ENCODING => '', // Enable automatic decompression
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => false,
-            CURLOPT_HEADERFUNCTION => $headerCallback,
-        ]);
-
-        $attempts = 0;
-        $html = false;
-
-        while ($attempts < $this->maxRetries && !$html) {
-            $responseHeaders = []; // Reset headers for each attempt
-            $html = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-            if ($html && $httpCode == 200) {
-                break;
-            }
-
-            // Handle 202 Accepted - Check if it's AWS WAF bot detection challenge
-            if ($httpCode == 202) {
-                // Check if this is AWS WAF challenge (x-amzn-waf-action: challenge)
-                $isWafChallenge = isset($responseHeaders['x-amzn-waf-action']) &&
-                                  $responseHeaders['x-amzn-waf-action'] === 'challenge';
-
-                if ($isWafChallenge) {
-                    // Increment bot challenge counter
-                    $this->botChallenges++;
-
-                    Logger::warning("AWS WAF bot challenge detected (202)", [
-                        'url' => $url,
-                        'waf_action' => $responseHeaders['x-amzn-waf-action']
-                    ]);
-
-                    // Close curl before attempting Chrome
-                    curl_close($ch);
-
-                    // Try fetching with Chrome to bypass WAF
-                    Logger::info("Attempting to bypass WAF using headless Chrome");
-                    $chromeHtml = $this->fetchUrlWithChrome($url);
-
-                    if ($chromeHtml) {
-                        // Increment successful bypass counter
-                        $this->successfulBypasses++;
-
-                        Logger::info("Successfully bypassed WAF with Chrome", ['url' => $url]);
-                        return $chromeHtml;
-                    }
-
-                    Logger::error("Chrome fallback failed for WAF challenge", ['url' => $url]);
-                    return false;
-                } else {
-                    // Standard 202 Accepted (async processing) - retry with delay
-                    Logger::warning("202 Accepted received (async processing)", [
-                        'url' => $url,
-                        'attempt' => $attempts + 1,
-                        'delay' => $this->delay202
-                    ]);
-
-                    if ($attempts < $this->maxRetries) {
-                        sleep($this->delay202);
-                        $attempts++;
-                        continue;
-                    }
-                }
-            }
-
-            // Handle 429 Too Many Requests - likely bot detection, try Chrome
-            if ($httpCode == 429) {
-                Logger::warning("429 Too Many Requests received (likely bot detection)", [
-                    'url' => $url,
-                    'attempt' => $attempts + 1
-                ]);
-
-                // Close curl before attempting Chrome
-                curl_close($ch);
-
-                // Try fetching with Chrome to bypass bot detection
-                Logger::info("Attempting to bypass bot detection using headless Chrome");
-                $chromeHtml = $this->fetchUrlWithChrome($url);
-
-                if ($chromeHtml) {
-                    Logger::info("Successfully bypassed bot detection with Chrome", ['url' => $url]);
-                    return $chromeHtml;
-                }
-
-                Logger::error("Chrome fallback failed for 429 bot detection", ['url' => $url]);
-                return false;
-            }
-
-            $attempts++;
-            if ($attempts < $this->maxRetries) {
-                Logger::debug("Retrying fetch", [
-                    'url' => $url,
-                    'attempt' => $attempts,
-                    'http_code' => $httpCode
-                ]);
-                sleep(1);
-            }
-        }
-
-        curl_close($ch);
-
-        return $html;
+        // Skip curl entirely - it flags IP and rarely works (1-2/1000 success rate)
+        // Go straight to Chrome headless for all requests
+        Logger::info("Fetching URL with headless Chrome (skipping curl)", ['url' => $url]);
+        return $this->fetchUrlWithChrome($url);
     }
 
     /**
