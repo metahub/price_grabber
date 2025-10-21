@@ -25,7 +25,6 @@ class Scraper
     private $maxRetries;
     private $delay;
     private $delay202;
-    private $delay429;
     private $minInterval;
     private $itemLockTimeout;
 
@@ -57,7 +56,6 @@ class Scraper
         $this->maxRetries = $this->settingsModel->get('scraper_max_retries', 3);
         $this->delay = $this->settingsModel->get('scraper_delay', 1);
         $this->delay202 = $this->settingsModel->get('scraper_202_delay', 30);
-        $this->delay429 = $this->settingsModel->get('scraper_429_delay', 5);
         $this->minInterval = $this->settingsModel->get('scraper_min_interval', 3600);
         $this->itemLockTimeout = $this->settingsModel->get('item_lock_timeout_seconds', 180);
 
@@ -374,19 +372,27 @@ class Scraper
                 }
             }
 
-            // Handle 429 Too Many Requests with extra delay
+            // Handle 429 Too Many Requests - likely bot detection, try Chrome
             if ($httpCode == 429) {
-                Logger::warning("429 Too Many Requests received", [
+                Logger::warning("429 Too Many Requests received (likely bot detection)", [
                     'url' => $url,
-                    'attempt' => $attempts + 1,
-                    'delay' => $this->delay429
+                    'attempt' => $attempts + 1
                 ]);
 
-                if ($attempts < $this->maxRetries) {
-                    sleep($this->delay429);
-                    $attempts++;
-                    continue;
+                // Close curl before attempting Chrome
+                curl_close($ch);
+
+                // Try fetching with Chrome to bypass bot detection
+                Logger::info("Attempting to bypass bot detection using headless Chrome");
+                $chromeHtml = $this->fetchUrlWithChrome($url);
+
+                if ($chromeHtml) {
+                    Logger::info("Successfully bypassed bot detection with Chrome", ['url' => $url]);
+                    return $chromeHtml;
                 }
+
+                Logger::error("Chrome fallback failed for 429 bot detection", ['url' => $url]);
+                return false;
             }
 
             $attempts++;
