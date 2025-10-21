@@ -474,15 +474,13 @@ class Scraper
                 // but we can add it via Chrome DevTools Protocol if needed
             }
 
-            // Navigate to the URL
-            $page->navigate($url);
+            // Navigate to the URL (this call can hang, protected by set_time_limit above)
+            $page->navigate($url)->waitForNavigation('firstMeaningfulPaint', 10000);
 
-            // Don't wait for navigation events - they can hang on WAF pages
-            // Instead, just sleep to give the page time to load and execute JavaScript
-            // WAF challenges typically solve themselves in 2-5 seconds
-            sleep(5);
+            // Wait a bit for JavaScript to execute (WAF challenges)
+            sleep(3);
 
-            // Get the HTML content (even if page is still loading)
+            // Get the HTML content
             $html = $page->getHtml();
 
             $memoryAfter = memory_get_usage(true);
