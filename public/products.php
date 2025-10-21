@@ -17,7 +17,7 @@ $priceHistoryModel = new PriceHistory();
 $search = isset($_GET['search']) ? $_GET['search'] : '';
 $parentFilter = isset($_GET['parent_filter']) ? $_GET['parent_filter'] : '';
 $sellers = isset($_GET['sellers']) ? $_GET['sellers'] : [];
-$productPriority = isset($_GET['product_priority']) ? $_GET['product_priority'] : '';
+$priorities = isset($_GET['priorities']) ? $_GET['priorities'] : [];
 
 // Pagination parameters
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
@@ -35,8 +35,8 @@ if ($parentFilter === 'parents_only') {
 if (!empty($sellers) && is_array($sellers)) {
     $filters['sellers'] = $sellers;
 }
-if (!empty($productPriority)) {
-    $filters['product_priority'] = $productPriority;
+if (!empty($priorities) && is_array($priorities)) {
+    $filters['product_priority'] = $priorities;
 }
 
 // Add pagination to filters
@@ -154,7 +154,7 @@ View::display('products.html.twig', [
     'parent_filter' => $parentFilter,
     'selected_sellers' => $sellers,
     'all_sellers' => $allSellers,
-    'product_priority' => $productPriority,
+    'selected_priorities' => $priorities,
     'all_priorities' => $allPriorities,
     'page' => $page,
     'per_page' => $perPage,

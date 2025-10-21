@@ -15,9 +15,9 @@
                 {% if parent_filter %}
                     <input type="hidden" name="parent_filter" value="{{ parent_filter }}" />
                 {% endif %}
-                {% if product_priority %}
-                    <input type="hidden" name="product_priority" value="{{ product_priority }}" />
-                {% endif %}
+                {% for priority in selected_priorities %}
+                    <input type="hidden" name="priorities[]" value="{{ priority }}" />
+                {% endfor %}
                 {% if per_page %}
                     <input type="hidden" name="per_page" value="{{ per_page }}" />
                 {% endif %}
@@ -133,15 +133,87 @@
                     </option>
                 </select>
 
-                <select name="product_priority" class="select w-auto">
-                    <option value="">All Priorities</option>
-                    {% for priority_row in all_priorities %}
-                        {% set priority = priority_row.product_priority %}
-                        <option value="{{ priority }}" {% if product_priority == priority %}selected{% endif %}>
-                            {{ priority|capitalize }}
-                        </option>
-                    {% endfor %}
-                </select>
+                {% if all_priorities is not empty %}
+                    <div class="relative flex-1 min-w-[200px]">
+                        <div class="relative">
+                        {# Hidden inputs to store selected priorities #}
+                        <div id="priority-inputs">
+                            {% for priority in selected_priorities %}
+                                <input type="hidden" name="priorities[]" value="{{ priority }}" class="priority-input" />
+                            {% endfor %}
+                        </div>
+
+                        {# Combobox button #}
+                        <button
+                            type="button"
+                            id="priority-combobox-btn"
+                            class="input w-full text-left flex items-center justify-between"
+                        >
+                            <span id="priority-combobox-text" class="{% if selected_priorities is empty %}text-muted-foreground{% endif %}">
+                                {% if selected_priorities is empty %}
+                                    Select priorities...
+                                {% else %}
+                                    {{ selected_priorities|length }} priorit{% if selected_priorities|length == 1 %}y{% else %}ies{% endif %} selected
+                                {% endif %}
+                            </span>
+                            <svg class="h-4 w-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+
+                        {# Combobox dropdown #}
+                        <div
+                            id="priority-combobox-dropdown"
+                            class="hidden absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg"
+                        >
+                            <div class="p-2">
+                                {# Search input #}
+                                <input
+                                    type="text"
+                                    id="priority-search"
+                                    placeholder="Search priorities..."
+                                    class="input w-full mb-2"
+                                />
+
+                                {# Select All / None buttons #}
+                                <div class="flex gap-2 mb-2">
+                                    <button
+                                        type="button"
+                                        id="select-all-priorities"
+                                        class="btn btn-outline text-xs flex-1"
+                                    >
+                                        Select All
+                                    </button>
+                                    <button
+                                        type="button"
+                                        id="select-none-priorities"
+                                        class="btn btn-outline text-xs flex-1"
+                                    >
+                                        Select None
+                                    </button>
+                                </div>
+
+                                {# Priority list #}
+                                <div class="max-h-64 overflow-y-auto border rounded p-2">
+                                    {% for priority_row in all_priorities %}
+                                        {% set priority = priority_row.product_priority %}
+                                        <label class="flex items-center py-2 px-2 hover:bg-muted rounded cursor-pointer priority-option">
+                                            <input
+                                                type="checkbox"
+                                                value="{{ priority }}"
+                                                class="h-4 w-4 rounded border-gray-300 priority-checkbox"
+                                                {% if priority in selected_priorities %}checked{% endif %}
+                                                data-priority="{{ priority }}"
+                                            />
+                                            <span class="ml-2 text-sm priority-name">{{ priority|capitalize }}</span>
+                                        </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                {% endif %}
 
                 <select name="per_page" class="select w-auto">
                     <option value="25" {% if per_page == 25 %}selected{% endif %}>25 per page</option>
@@ -244,6 +316,93 @@
                         }
                     });
                 });
+
+                // Priority combobox functionality
+                const priorityComboboxBtn = document.getElementById('priority-combobox-btn');
+                const priorityComboboxDropdown = document.getElementById('priority-combobox-dropdown');
+                const priorityComboboxText = document.getElementById('priority-combobox-text');
+                const prioritySearchInput = document.getElementById('priority-search');
+                const selectAllPrioritiesBtn = document.getElementById('select-all-priorities');
+                const selectNonePrioritiesBtn = document.getElementById('select-none-priorities');
+                const priorityInputs = document.getElementById('priority-inputs');
+                const priorityCheckboxes = document.querySelectorAll('.priority-checkbox');
+                const priorityOptions = document.querySelectorAll('.priority-option');
+
+                if (priorityComboboxBtn) {
+                    // Toggle dropdown
+                    priorityComboboxBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        priorityComboboxDropdown.classList.toggle('hidden');
+                        if (!priorityComboboxDropdown.classList.contains('hidden')) {
+                            prioritySearchInput.focus();
+                        }
+                    });
+
+                    // Close dropdown when clicking outside
+                    document.addEventListener('click', function(e) {
+                        if (!priorityComboboxBtn.contains(e.target) && !priorityComboboxDropdown.contains(e.target)) {
+                            priorityComboboxDropdown.classList.add('hidden');
+                        }
+                    });
+
+                    // Update hidden inputs and button text
+                    function updatePrioritySelection() {
+                        const selected = Array.from(priorityCheckboxes)
+                            .filter(cb => cb.checked)
+                            .map(cb => cb.value);
+
+                        // Update hidden inputs
+                        priorityInputs.innerHTML = selected
+                            .map(priority => `<input type="hidden" name="priorities[]" value="${priority}" class="priority-input" />`)
+                            .join('');
+
+                        // Update button text
+                        if (selected.length === 0) {
+                            priorityComboboxText.textContent = 'Select priorities...';
+                            priorityComboboxText.classList.add('text-muted-foreground');
+                        } else {
+                            const label = selected.length === 1 ? 'priority' : 'priorities';
+                            priorityComboboxText.textContent = `${selected.length} ${label} selected`;
+                            priorityComboboxText.classList.remove('text-muted-foreground');
+                        }
+                    }
+
+                    // Handle checkbox changes
+                    priorityCheckboxes.forEach(function(checkbox) {
+                        checkbox.addEventListener('change', updatePrioritySelection);
+                    });
+
+                    // Select All
+                    selectAllPrioritiesBtn.addEventListener('click', function() {
+                        priorityCheckboxes.forEach(function(cb) {
+                            if (!cb.closest('.priority-option').classList.contains('hidden')) {
+                                cb.checked = true;
+                            }
+                        });
+                        updatePrioritySelection();
+                    });
+
+                    // Select None
+                    selectNonePrioritiesBtn.addEventListener('click', function() {
+                        priorityCheckboxes.forEach(function(cb) {
+                            cb.checked = false;
+                        });
+                        updatePrioritySelection();
+                    });
+
+                    // Search functionality
+                    prioritySearchInput.addEventListener('input', function() {
+                        const searchTerm = this.value.toLowerCase();
+                        priorityOptions.forEach(function(option) {
+                            const priorityName = option.querySelector('.priority-name').textContent.toLowerCase();
+                            if (priorityName.includes(searchTerm)) {
+                                option.classList.remove('hidden');
+                            } else {
+                                option.classList.add('hidden');
+                            }
+                        });
+                    });
+                }
             });
         </script>
 
@@ -350,7 +509,7 @@
                     <div class="flex gap-2">
                         {# Previous button #}
                         {% if page > 1 %}
-                            <a href="?page={{ page - 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% if product_priority %}&product_priority={{ product_priority }}{% endif %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page={{ page - 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
                                class="btn btn-outline">
                                 Previous
                             </a>
@@ -361,7 +520,7 @@
                         {% set end_page = min(total_pages, page + 2) %}
 
                         {% if start_page > 1 %}
-                            <a href="?page=1&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% if product_priority %}&product_priority={{ product_priority }}{% endif %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page=1&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
                                class="btn btn-outline">
                                 1
                             </a>
@@ -371,7 +530,7 @@
                         {% endif %}
 
                         {% for p in start_page..end_page %}
-                            <a href="?page={{ p }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% if product_priority %}&product_priority={{ product_priority }}{% endif %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page={{ p }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
                                class="btn {% if p == page %}btn-primary{% else %}btn-outline{% endif %}">
                                 {{ p }}
                             </a>
@@ -381,7 +540,7 @@
                             {% if end_page < total_pages - 1 %}
                                 <span class="px-3 py-2">...</span>
                             {% endif %}
-                            <a href="?page={{ total_pages }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% if product_priority %}&product_priority={{ product_priority }}{% endif %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page={{ total_pages }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
                                class="btn btn-outline">
                                 {{ total_pages }}
                             </a>
@@ -389,7 +548,7 @@
 
                         {# Next button #}
                         {% if page < total_pages %}
-                            <a href="?page={{ page + 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% if product_priority %}&product_priority={{ product_priority }}{% endif %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page={{ page + 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
                                class="btn btn-outline">
                                 Next
                             </a>

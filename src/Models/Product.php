@@ -177,8 +177,18 @@ class Product
         }
 
         if (!empty($filters['product_priority'])) {
-            $sql .= " AND p.product_priority = :product_priority";
-            $params[':product_priority'] = $filters['product_priority'];
+            if (is_array($filters['product_priority'])) {
+                $priorityPlaceholders = [];
+                foreach ($filters['product_priority'] as $index => $priority) {
+                    $placeholder = ":priority_{$index}";
+                    $priorityPlaceholders[] = $placeholder;
+                    $params[$placeholder] = $priority;
+                }
+                $sql .= " AND p.product_priority IN (" . implode(',', $priorityPlaceholders) . ")";
+            } else {
+                $sql .= " AND p.product_priority = :product_priority";
+                $params[':product_priority'] = $filters['product_priority'];
+            }
         }
 
         $sql .= " ORDER BY p.product_id ASC";
@@ -270,8 +280,18 @@ class Product
         }
 
         if (!empty($filters['product_priority'])) {
-            $sql .= " AND p.product_priority = :product_priority";
-            $params[':product_priority'] = $filters['product_priority'];
+            if (is_array($filters['product_priority'])) {
+                $priorityPlaceholders = [];
+                foreach ($filters['product_priority'] as $index => $priority) {
+                    $placeholder = ":priority_{$index}";
+                    $priorityPlaceholders[] = $placeholder;
+                    $params[$placeholder] = $priority;
+                }
+                $sql .= " AND p.product_priority IN (" . implode(',', $priorityPlaceholders) . ")";
+            } else {
+                $sql .= " AND p.product_priority = :product_priority";
+                $params[':product_priority'] = $filters['product_priority'];
+            }
         }
 
         $result = $this->db->fetchOne($sql, $params);
