@@ -311,6 +311,15 @@ class Scraper
                 'keepAlive' => false,
                 'windowSize' => [1920, 1080],
                 'userAgent' => $this->userAgent,
+                'customFlags' => [
+                    '--disable-crash-reporter',        // Fix crash handler database error
+                    '--disable-dev-shm-usage',         // Prevent /dev/shm issues
+                    '--disable-gpu',                   // Not needed in headless
+                    '--disable-software-rasterizer',   // Additional GPU fix
+                    '--no-first-run',                  // Skip first run wizards
+                    '--no-default-browser-check',      // Skip browser checks
+                    '--disable-background-networking', // Reduce resource usage
+                ]
             ]);
 
             // Create a new page
