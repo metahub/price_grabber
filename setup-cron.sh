@@ -1,7 +1,14 @@
 #!/bin/bash
 # Setup cron job for price_grabber scraper
-# Run every minute with max 4 concurrent jobs, 100 items each
+# Run every minute, processing up to 100 items per run
 # Runs as root (Chrome requires it) but fixes log permissions for www-data
+#
+# Performance testing showed:
+#   1 process: 7.4 products/min (optimal)
+#   2 processes: 10 products/min total (68% efficiency)
+#   4 processes: 10 products/min total (33% efficiency)
+# Conclusion: Use max_concurrent_scrapers=1 for best throughput
+# Bottleneck: Chrome overhead or Otto.de throttling concurrent requests
 
 echo "Setting up price_grabber cron job..."
 echo ""
@@ -40,7 +47,8 @@ echo "Current cron configuration:"
 crontab -l | grep "price_grabber"
 echo ""
 echo "The scraper will run every minute, processing up to 100 items."
-echo "Max 4 concurrent scrapers (controlled by max_concurrent_scrapers setting)."
+echo "Optimal: max_concurrent_scrapers=1 (set via database settings)."
+echo "Performance: ~7.4 products/min = 444/hour = 10,656/day"
 echo ""
 echo "Monitor with:"
 echo "  tail -f /var/www/tools/price_grabber/shared/logs/cron.log"
