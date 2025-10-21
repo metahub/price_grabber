@@ -443,7 +443,7 @@ class Scraper
                 'keepAlive' => false,
                 'windowSize' => [1920, 1080],
                 'userAgent' => $this->userAgent,
-                'connectionDelay' => $this->chromeTimeout * 1000000,    // Timeout in microseconds
+                'connectionDelay' => 10000000,    // 10 second connection timeout
                 'customFlags' => [
                     '--disable-dev-shm-usage',           // Overcome limited resource problems
                     '--disable-setuid-sandbox',          // Additional sandbox disabling
@@ -461,6 +461,7 @@ class Scraper
                     '--single-process',                  // Run as single process (fixes ProcessSingleton)
                     '--disable-features=ProcessSingleton', // Disable ProcessSingleton lock mechanism
                     '--user-data-dir=' . $userDataDir,   // Dedicated user data directory
+                    '--timeout=' . ($this->chromeTimeout * 1000), // Page load timeout in ms
                 ],
             ]);
 
