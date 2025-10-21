@@ -422,8 +422,12 @@ class Scraper
 
         $browser = null;
         $userDataDir = null;
+        $oldTimeLimit = ini_get('max_execution_time');
 
         try {
+            // Set a hard timeout for the entire Chrome operation
+            set_time_limit($this->chromeTimeout + 10); // Chrome timeout + 10 seconds buffer
+
             $browserFactory = new BrowserFactory($this->chromeBinaryPath);
 
             // Create user data directory for Chrome (use /var/cache to avoid AppArmor issues)
@@ -515,6 +519,9 @@ class Scraper
             ]);
             return false;
         } finally {
+            // Restore original time limit
+            set_time_limit($oldTimeLimit);
+
             // Always try to close the browser, even if an error occurred
             if ($browser !== null) {
                 try {
