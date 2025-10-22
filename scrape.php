@@ -14,7 +14,7 @@ use PriceGrabber\Models\ItemLock;
 use PriceGrabber\Models\Settings;
 
 // Parse command line arguments
-$options = getopt('u:an:', ['url:', 'all', 'limit:']);
+$options = getopt('u:an:p:', ['url:', 'all', 'limit:', 'product-id:']);
 
 // Log memory limit for debugging
 $memoryLimit = ini_get('memory_limit');
@@ -26,7 +26,24 @@ Logger::info("Scraper starting", [
 $scraper = new Scraper();
 
 try {
-    if (isset($options['u']) || isset($options['url'])) {
+    if (isset($options['p']) || isset($options['product-id'])) {
+        // Scrape a specific product by product_id
+        $productId = $options['p'] ?? $options['product-id'];
+        Logger::info("Scraping product by ID", ['product_id' => $productId]);
+        echo "Scraping product: {$productId}\n";
+
+        $result = $scraper->scrapeByProductId($productId);
+        echo "Success!\n";
+        echo "Product ID: " . ($result['product_id'] ?? 'N/A') . "\n";
+        echo "URL Status: " . ($result['url_status'] ?? 'N/A') . "\n";
+        if (!empty($result['data'])) {
+            echo "\nScraped Data:\n";
+            echo "  Price: " . ($result['data']['price'] ?? 'N/A') . "\n";
+            echo "  Name: " . ($result['data']['name'] ?? 'N/A') . "\n";
+            echo "  Seller: " . ($result['data']['seller'] ?? 'N/A') . "\n";
+            echo "  Availability: " . ($result['data']['availability'] ?? 'N/A') . "\n";
+        }
+    } elseif (isset($options['u']) || isset($options['url'])) {
         // Scrape a single URL
         $url = $options['u'] ?? $options['url'];
         Logger::info("Scraping single URL", ['url' => $url]);
@@ -164,12 +181,18 @@ try {
         }
     } else {
         echo "Usage:\n";
-        echo "  php scrape.php -u <url>       Scrape a single URL\n";
-        echo "  php scrape.php --url=<url>    Scrape a single URL\n";
-        echo "  php scrape.php -a             Scrape all products\n";
-        echo "  php scrape.php --all          Scrape all products\n";
-        echo "  php scrape.php -n <number>    Scrape limited number of products\n";
-        echo "  php scrape.php --limit=<num>  Scrape limited number of products\n";
+        echo "  php scrape.php -p <product_id>     Scrape a specific product by ID\n";
+        echo "  php scrape.php --product-id=<id>   Scrape a specific product by ID\n";
+        echo "  php scrape.php -u <url>            Scrape a single URL\n";
+        echo "  php scrape.php --url=<url>         Scrape a single URL\n";
+        echo "  php scrape.php -a                  Scrape all products\n";
+        echo "  php scrape.php --all               Scrape all products\n";
+        echo "  php scrape.php -n <number>         Scrape limited number of products\n";
+        echo "  php scrape.php --limit=<num>       Scrape limited number of products\n";
+        echo "\n";
+        echo "Examples:\n";
+        echo "  php scrape.php -p 199529-60        Scrape product with ID 199529-60\n";
+        echo "  php scrape.php -n 10               Scrape 10 products\n";
     }
 } catch (Exception $e) {
     Logger::error("Scraper error", ['error' => $e->getMessage()]);

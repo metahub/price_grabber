@@ -18,6 +18,7 @@ $search = isset($_GET['search']) ? $_GET['search'] : '';
 $dataFilter = isset($_GET['data_filter']) ? $_GET['data_filter'] : '';
 $sellers = isset($_GET['sellers']) ? $_GET['sellers'] : [];
 $priorities = isset($_GET['priorities']) ? $_GET['priorities'] : [];
+$urlStatuses = isset($_GET['url_statuses']) ? $_GET['url_statuses'] : [];
 
 // Pagination parameters
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
@@ -37,6 +38,9 @@ if (!empty($sellers) && is_array($sellers)) {
 }
 if (!empty($priorities) && is_array($priorities)) {
     $filters['product_priority'] = $priorities;
+}
+if (!empty($urlStatuses) && is_array($urlStatuses)) {
+    $filters['url_status'] = $urlStatuses;
 }
 
 // Add pagination to filters
@@ -63,6 +67,9 @@ $allSellers = $priceHistoryModel->getAllSellers();
 
 // Get all product priorities for the filter
 $allPriorities = $productModel->getProductPriorities();
+
+// Get all URL statuses for the filter
+$allUrlStatuses = $productModel->getUrlStatuses();
 
 // Handle CSV export
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
@@ -105,6 +112,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         'Name',
         'Description',
         'URL',
+        'URL Status',
         'Price',
         'UVP',
         'Site Status',
@@ -130,6 +138,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             $product['name'],
             $product['description'],
             $product['url'],
+            $product['url_status'],
             $product['price'],
             $product['uvp'],
             $product['site_status'],
@@ -156,6 +165,8 @@ View::display('products.html.twig', [
     'all_sellers' => $allSellers,
     'selected_priorities' => $priorities,
     'all_priorities' => $allPriorities,
+    'selected_url_statuses' => $urlStatuses,
+    'all_url_statuses' => $allUrlStatuses,
     'page' => $page,
     'per_page' => $perPage,
     'total_products' => $totalProducts,

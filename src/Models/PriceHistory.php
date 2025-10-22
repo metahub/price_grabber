@@ -130,4 +130,17 @@ class PriceHistory
         $sql = "SELECT DISTINCT seller FROM price_history WHERE seller IS NOT NULL AND seller != '' ORDER BY seller";
         return $this->db->fetchAll($sql);
     }
+
+    /**
+     * Check if a product has any price history records
+     *
+     * @param string $productId Product ID to check
+     * @return bool True if product has history, false otherwise
+     */
+    public function hasHistory($productId)
+    {
+        $sql = "SELECT COUNT(*) as count FROM price_history WHERE product_id = :product_id LIMIT 1";
+        $result = $this->db->fetchOne($sql, [':product_id' => $productId]);
+        return $result && $result['count'] > 0;
+    }
 }

@@ -24,6 +24,9 @@
                 {% for seller in selected_sellers %}
                     <input type="hidden" name="sellers[]" value="{{ seller }}" />
                 {% endfor %}
+                {% for url_status in selected_url_statuses %}
+                    <input type="hidden" name="url_statuses[]" value="{{ url_status }}" />
+                {% endfor %}
                 {% if page %}
                     <input type="hidden" name="page" value="{{ page }}" />
                 {% endif %}
@@ -209,6 +212,80 @@
                                                 data-priority="{{ priority }}"
                                             />
                                             <span class="ml-2 text-sm priority-name">{{ priority|capitalize }}</span>
+                                        </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                {% endif %}
+
+                {% if all_url_statuses is not empty %}
+                    <div class="relative flex-1 min-w-[200px]">
+                        <div class="relative">
+                        {# Hidden inputs to store selected URL statuses #}
+                        <div id="url-status-inputs">
+                            {% for url_status in selected_url_statuses %}
+                                <input type="hidden" name="url_statuses[]" value="{{ url_status }}" class="url-status-input" />
+                            {% endfor %}
+                        </div>
+
+                        {# Combobox button #}
+                        <button
+                            type="button"
+                            id="url-status-combobox-btn"
+                            class="input w-full text-left flex items-center justify-between"
+                        >
+                            <span id="url-status-combobox-text" class="{% if selected_url_statuses is empty %}text-muted-foreground{% endif %}">
+                                {% if selected_url_statuses is empty %}
+                                    Select URL status...
+                                {% else %}
+                                    {{ selected_url_statuses|length }} status{% if selected_url_statuses|length != 1 %}es{% endif %} selected
+                                {% endif %}
+                            </span>
+                            <svg class="h-4 w-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+
+                        {# Combobox dropdown #}
+                        <div
+                            id="url-status-combobox-dropdown"
+                            class="hidden absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg"
+                        >
+                            <div class="p-2">
+                                {# Select All / None buttons #}
+                                <div class="flex gap-2 mb-2">
+                                    <button
+                                        type="button"
+                                        id="select-all-url-statuses"
+                                        class="btn btn-outline text-xs flex-1"
+                                    >
+                                        Select All
+                                    </button>
+                                    <button
+                                        type="button"
+                                        id="select-none-url-statuses"
+                                        class="btn btn-outline text-xs flex-1"
+                                    >
+                                        Select None
+                                    </button>
+                                </div>
+
+                                {# URL status list #}
+                                <div class="max-h-64 overflow-y-auto border rounded p-2">
+                                    {% for status_row in all_url_statuses %}
+                                        {% set url_status = status_row.url_status %}
+                                        <label class="flex items-center py-2 px-2 hover:bg-muted rounded cursor-pointer url-status-option">
+                                            <input
+                                                type="checkbox"
+                                                value="{{ url_status }}"
+                                                class="h-4 w-4 rounded border-gray-300 url-status-checkbox"
+                                                {% if url_status in selected_url_statuses %}checked{% endif %}
+                                                data-url-status="{{ url_status }}"
+                                            />
+                                            <span class="ml-2 text-sm url-status-name">{{ url_status|capitalize }}</span>
                                         </label>
                                     {% endfor %}
                                 </div>
@@ -406,6 +483,74 @@
                         });
                     });
                 }
+
+                // URL Status combobox functionality
+                const urlStatusComboboxBtn = document.getElementById('url-status-combobox-btn');
+                const urlStatusComboboxDropdown = document.getElementById('url-status-combobox-dropdown');
+                const urlStatusComboboxText = document.getElementById('url-status-combobox-text');
+                const selectAllUrlStatusesBtn = document.getElementById('select-all-url-statuses');
+                const selectNoneUrlStatusesBtn = document.getElementById('select-none-url-statuses');
+                const urlStatusInputs = document.getElementById('url-status-inputs');
+                const urlStatusCheckboxes = document.querySelectorAll('.url-status-checkbox');
+                const urlStatusOptions = document.querySelectorAll('.url-status-option');
+
+                if (urlStatusComboboxBtn) {
+                    // Toggle dropdown
+                    urlStatusComboboxBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        urlStatusComboboxDropdown.classList.toggle('hidden');
+                    });
+
+                    // Close dropdown when clicking outside
+                    document.addEventListener('click', function(e) {
+                        if (!urlStatusComboboxBtn.contains(e.target) && !urlStatusComboboxDropdown.contains(e.target)) {
+                            urlStatusComboboxDropdown.classList.add('hidden');
+                        }
+                    });
+
+                    // Update hidden inputs and button text
+                    function updateUrlStatusSelection() {
+                        const selected = Array.from(urlStatusCheckboxes)
+                            .filter(cb => cb.checked)
+                            .map(cb => cb.value);
+
+                        // Update hidden inputs
+                        urlStatusInputs.innerHTML = selected
+                            .map(status => `<input type="hidden" name="url_statuses[]" value="${status}" class="url-status-input" />`)
+                            .join('');
+
+                        // Update button text
+                        if (selected.length === 0) {
+                            urlStatusComboboxText.textContent = 'Select URL status...';
+                            urlStatusComboboxText.classList.add('text-muted-foreground');
+                        } else {
+                            const label = selected.length === 1 ? 'status' : 'statuses';
+                            urlStatusComboboxText.textContent = `${selected.length} ${label} selected`;
+                            urlStatusComboboxText.classList.remove('text-muted-foreground');
+                        }
+                    }
+
+                    // Handle checkbox changes
+                    urlStatusCheckboxes.forEach(function(checkbox) {
+                        checkbox.addEventListener('change', updateUrlStatusSelection);
+                    });
+
+                    // Select All
+                    selectAllUrlStatusesBtn.addEventListener('click', function() {
+                        urlStatusCheckboxes.forEach(function(cb) {
+                            cb.checked = true;
+                        });
+                        updateUrlStatusSelection();
+                    });
+
+                    // Select None
+                    selectNoneUrlStatusesBtn.addEventListener('click', function() {
+                        urlStatusCheckboxes.forEach(function(cb) {
+                            cb.checked = false;
+                        });
+                        updateUrlStatusSelection();
+                    });
+                }
             });
         </script>
 
@@ -427,6 +572,7 @@
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">ID</th>
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Product</th>
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Priority</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">URL Status</th>
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Latest Price</th>
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Last Checked</th>
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Actions</th>
@@ -466,6 +612,29 @@
                                     {% else %}
                                         <span class="badge badge-outline">
                                             {{ product.product_priority|capitalize }}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 px-4">
+                                    {% if product.url_status == 'valid' %}
+                                        <span class="badge border-transparent bg-green-600 text-white">
+                                            Valid
+                                        </span>
+                                    {% elseif product.url_status == 'invalid' %}
+                                        <span class="badge badge-danger">
+                                            Invalid
+                                        </span>
+                                    {% elseif product.url_status == 'error' %}
+                                        <span class="badge border-transparent bg-gray-600 text-white">
+                                            Error
+                                        </span>
+                                    {% elseif product.url_status == 'unchecked' %}
+                                        <span class="badge border-transparent bg-yellow-500 text-white">
+                                            Unchecked
+                                        </span>
+                                    {% else %}
+                                        <span class="badge badge-outline">
+                                            Unknown
                                         </span>
                                     {% endif %}
                                 </td>
@@ -512,7 +681,7 @@
                     <div class="flex gap-2">
                         {# Previous button #}
                         {% if page > 1 %}
-                            <a href="?page={{ page - 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page={{ page - 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}{% for url_status in selected_url_statuses %}&url_statuses[]={{ url_status }}{% endfor %}"
                                class="btn btn-outline">
                                 Previous
                             </a>
@@ -523,7 +692,7 @@
                         {% set end_page = min(total_pages, page + 2) %}
 
                         {% if start_page > 1 %}
-                            <a href="?page=1&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page=1&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}{% for url_status in selected_url_statuses %}&url_statuses[]={{ url_status }}{% endfor %}"
                                class="btn btn-outline">
                                 1
                             </a>
@@ -533,7 +702,7 @@
                         {% endif %}
 
                         {% for p in start_page..end_page %}
-                            <a href="?page={{ p }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page={{ p }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}{% for url_status in selected_url_statuses %}&url_statuses[]={{ url_status }}{% endfor %}"
                                class="btn {% if p == page %}btn-primary{% else %}btn-outline{% endif %}">
                                 {{ p }}
                             </a>
@@ -543,7 +712,7 @@
                             {% if end_page < total_pages - 1 %}
                                 <span class="px-3 py-2">...</span>
                             {% endif %}
-                            <a href="?page={{ total_pages }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page={{ total_pages }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}{% for url_status in selected_url_statuses %}&url_statuses[]={{ url_status }}{% endfor %}"
                                class="btn btn-outline">
                                 {{ total_pages }}
                             </a>
@@ -551,7 +720,7 @@
 
                         {# Next button #}
                         {% if page < total_pages %}
-                            <a href="?page={{ page + 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page={{ page + 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}{% for url_status in selected_url_statuses %}&url_statuses[]={{ url_status }}{% endfor %}"
                                class="btn btn-outline">
                                 Next
                             </a>

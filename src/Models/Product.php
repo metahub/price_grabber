@@ -56,7 +56,7 @@ class Product
         $params = [':product_id' => $productId];
 
         $allowedFields = ['parent_id', 'sku', 'ean', 'site', 'site_product_id',
-                         'price', 'uvp', 'site_status', 'product_priority', 'url', 'name', 'description', 'image_url'];
+                         'price', 'uvp', 'site_status', 'product_priority', 'url', 'url_status', 'name', 'description', 'image_url'];
 
         foreach ($allowedFields as $field) {
             if (array_key_exists($field, $data)) {
@@ -201,6 +201,21 @@ class Product
             }
         }
 
+        if (!empty($filters['url_status'])) {
+            if (is_array($filters['url_status'])) {
+                $urlStatusPlaceholders = [];
+                foreach ($filters['url_status'] as $index => $status) {
+                    $placeholder = ":url_status_{$index}";
+                    $urlStatusPlaceholders[] = $placeholder;
+                    $params[$placeholder] = $status;
+                }
+                $sql .= " AND p.url_status IN (" . implode(',', $urlStatusPlaceholders) . ")";
+            } else {
+                $sql .= " AND p.url_status = :url_status";
+                $params[':url_status'] = $filters['url_status'];
+            }
+        }
+
         $sql .= " ORDER BY p.product_id ASC";
 
         // Add pagination to SQL before preparing
@@ -314,6 +329,21 @@ class Product
             }
         }
 
+        if (!empty($filters['url_status'])) {
+            if (is_array($filters['url_status'])) {
+                $urlStatusPlaceholders = [];
+                foreach ($filters['url_status'] as $index => $status) {
+                    $placeholder = ":url_status_{$index}";
+                    $urlStatusPlaceholders[] = $placeholder;
+                    $params[$placeholder] = $status;
+                }
+                $sql .= " AND p.url_status IN (" . implode(',', $urlStatusPlaceholders) . ")";
+            } else {
+                $sql .= " AND p.url_status = :url_status";
+                $params[':url_status'] = $filters['url_status'];
+            }
+        }
+
         $result = $this->db->fetchOne($sql, $params);
         return $result ? (int)$result['total'] : 0;
     }
@@ -365,7 +395,20 @@ class Product
         return $this->db->fetchAll($sql);
     }
 
-    public function getProductsNeedingScrape($minInterval, $limit = null)
+    public function getUrlStatuses()
+    {
+        $sql = "SELECT DISTINCT url_status FROM products WHERE url_status IS NOT NULL ORDER BY
+                CASE url_status
+                    WHEN 'valid' THEN 1
+                    WHEN 'unchecked' THEN 2
+                    WHEN 'invalid' THEN 3
+                    WHEN 'error' THEN 4
+                    ELSE 5
+                END";
+        return $this->db->fetchAll($sql);
+    }
+
+    public function getProductsNeedingScrape($minInterval, $limit = null, $includeInvalid = false)
     {
         $sql = "SELECT p.*
                 FROM products p
@@ -374,9 +417,15 @@ class Product
                     FROM price_history
                     GROUP BY product_id
                 ) ph ON p.product_id = ph.product_id
-                WHERE ph.last_fetch IS NULL
-                   OR ph.last_fetch < DATE_SUB(NOW(), INTERVAL :interval SECOND)
-                ORDER BY p.product_id ASC";
+                WHERE (ph.last_fetch IS NULL
+                   OR ph.last_fetch < DATE_SUB(NOW(), INTERVAL :interval SECOND))";
+
+        // By default, exclude products with invalid URLs
+        if (!$includeInvalid) {
+            $sql .= " AND (p.url_status IS NULL OR p.url_status NOT IN ('invalid', 'error'))";
+        }
+
+        $sql .= " ORDER BY p.product_id ASC";
 
         if ($limit !== null && $limit > 0) {
             $sql .= " LIMIT :limit";

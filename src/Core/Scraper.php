@@ -87,6 +87,13 @@ class Scraper
         if (!$html) {
             $error = "Failed to fetch URL: {$url}";
             Logger::error($error);
+
+            // Mark URL as error if fetch failed
+            if ($productIdToUpdate) {
+                $this->productModel->update($productIdToUpdate, ['url_status' => 'error']);
+                Logger::info("Marked URL as error (fetch failed)", ['product_id' => $productIdToUpdate]);
+            }
+
             throw new \Exception($error);
         }
 
@@ -102,12 +109,32 @@ class Scraper
             }
         }
 
+        // Determine URL status based on extracted data
+        $urlStatus = 'invalid'; // Default to invalid
+        $hasData = !empty($data['price']) || !empty($data['name']);
+
+        if ($hasData) {
+            $urlStatus = 'valid';
+        } else {
+            // Check if this product previously had data
+            if ($productId) {
+                $hadData = $this->priceHistoryModel->hasHistory($productId);
+                if ($hadData) {
+                    Logger::warning("Product previously had data but now returns nothing", [
+                        'product_id' => $productId,
+                        'url' => $url
+                    ]);
+                }
+            }
+        }
+
         if ($productId) {
             // Update existing product with scraped data
             $updateData = [
                 'url' => $url,
                 'price' => $data['price'] ?? null,
                 'site_status' => $data['site_status'] ?? null,
+                'url_status' => $urlStatus,
             ];
 
             if (!empty($data['name'])) {
@@ -118,7 +145,10 @@ class Scraper
             }
 
             $this->productModel->update($productId, $updateData);
-            Logger::info("Product updated from scrape", ['product_id' => $productId]);
+            Logger::info("Product updated from scrape", [
+                'product_id' => $productId,
+                'url_status' => $urlStatus
+            ]);
         }
 
         // Save price history if we have a price
@@ -141,8 +171,45 @@ class Scraper
 
         return [
             'product_id' => $productId,
-            'data' => $data
+            'data' => $data,
+            'url_status' => $urlStatus
         ];
+    }
+
+    /**
+     * Scrape a specific product by its product_id
+     *
+     * @param string $productId Product ID to scrape
+     * @return array Result of the scrape operation
+     * @throws \Exception If product not found or scraping fails
+     */
+    public function scrapeByProductId($productId)
+    {
+        Logger::info("Scraping by product ID", ['product_id' => $productId]);
+
+        // Find product by product_id
+        $product = $this->productModel->findByProductId($productId);
+
+        if (!$product) {
+            $error = "Product not found: {$productId}";
+            Logger::error($error);
+            throw new \Exception($error);
+        }
+
+        if (empty($product['url'])) {
+            $error = "Product {$productId} has no URL configured";
+            Logger::error($error);
+            throw new \Exception($error);
+        }
+
+        Logger::info("Found product, scraping URL", [
+            'product_id' => $productId,
+            'url' => $product['url'],
+            'name' => $product['name'] ?? 'N/A'
+        ]);
+
+        // Scrape the product's URL
+        return $this->scrapeUrl($product['url'], $productId);
     }
 
     public function scrapeProducts($filters = [], $limit = null)
