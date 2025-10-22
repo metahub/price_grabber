@@ -97,6 +97,34 @@ try {
                 $limit = (int)$options['limit'];
             }
 
+            // Check if there are products to scrape before creating a run entry
+            $productModel = new \PriceGrabber\Models\Product();
+            $minInterval = $settingsModel->get('scraper_min_interval', 3600);
+
+            // Fetch a small number just to check if anything is available
+            // Use the same buffer logic as the actual scraper (3x)
+            $checkLimit = $limit ? min($limit * 3, 10) : 10;
+            $productsToScrape = $productModel->getProductsNeedingScrape($minInterval, $checkLimit);
+
+            if (empty($productsToScrape)) {
+                Logger::info("No products need scraping, skipping execution", [
+                    'min_interval' => $minInterval,
+                    'current_pid' => getmypid()
+                ]);
+                echo "No products need scraping at this time.\n";
+                echo "Skipping execution.\n";
+
+                // Release the lock before exiting
+                $lockManager->releaseLock();
+                exit(0);
+            }
+
+            Logger::info("Found products needing scrape", [
+                'count' => count($productsToScrape),
+                'limit' => $limit,
+                'min_interval' => $minInterval
+            ]);
+
             // Start tracking the run
             $runId = $runTracker->startRun($limit);
 
