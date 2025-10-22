@@ -436,18 +436,48 @@ class Scraper
             // Use 'load' instead of 'networkIdle' to ensure external scripts load
             $navigation->waitForNavigation('load', $this->chromeTimeout * 1000);
 
-            // Additional wait for JavaScript challenges (e.g., Kasada, PerimeterX)
-            // Kasada loads external ips.js which needs time to execute
-            // Use random delay to avoid predictable bot patterns
-            $jsWaitTime = rand(3, 7); // 3-7 seconds, random
-            Logger::info("Waiting for JavaScript challenges to execute", [
-                'url' => $url,
-                'wait_seconds' => $jsWaitTime
-            ]);
-            sleep($jsWaitTime);
+            // Poll for actual content to load (challenge completion or page error)
+            // Kasada challenge is ~717 bytes, real pages are 400KB+
+            $maxWaitTime = 20; // seconds
+            $minContentSize = 10000; // 10KB threshold
+            $startTime = time();
+            $pollInterval = 500000; // 0.5 seconds in microseconds
+            $pollCount = 0;
 
-            // Get the HTML content after JS execution
+            Logger::info("Waiting for page content to load", [
+                'url' => $url,
+                'max_wait_seconds' => $maxWaitTime
+            ]);
+
             $html = $page->getHtml();
+            $initialSize = strlen($html);
+
+            while (strlen($html) < $minContentSize && (time() - $startTime) < $maxWaitTime) {
+                usleep($pollInterval);
+                $html = $page->getHtml();
+                $pollCount++;
+
+                // Log progress every 2 seconds
+                if ($pollCount % 4 === 0) {
+                    Logger::debug("Still waiting for content", [
+                        'url' => $url,
+                        'current_size' => strlen($html),
+                        'elapsed_seconds' => time() - $startTime
+                    ]);
+                }
+            }
+
+            $finalSize = strlen($html);
+            $elapsedTime = time() - $startTime;
+
+            Logger::info("Page content load complete", [
+                'url' => $url,
+                'initial_size' => $initialSize,
+                'final_size' => $finalSize,
+                'elapsed_seconds' => $elapsedTime,
+                'poll_count' => $pollCount,
+                'timed_out' => $finalSize < $minContentSize
+            ]);
 
             $memoryAfter = memory_get_usage(true);
             $memoryUsed = $memoryAfter - $memoryBefore;
