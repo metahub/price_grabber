@@ -398,24 +398,14 @@ class Scraper
             $browserFactory = new BrowserFactory($this->chromeBinaryPath);
 
             // Launch browser with options
+            // Testing: Removed all customFlags to see if that brings back JS challenges
+            // Before Oct 21, there were no custom flags and WAF challenges appeared
             $browser = $browserFactory->createBrowser([
                 'headless' => true,
                 'noSandbox' => true, // Required for some server environments
                 'keepAlive' => false,
                 'windowSize' => [1920, 1080],
                 'userAgent' => $this->userAgent,
-                'customFlags' => [
-                    '--disable-crash-reporter',        // Fix crash handler database error
-                    '--disable-dev-shm-usage',         // Prevent /dev/shm issues
-                    '--disable-gpu',                   // Not needed in headless
-                    '--disable-software-rasterizer',   // Additional GPU fix
-                    '--no-first-run',                  // Skip first run wizards
-                    '--no-default-browser-check',      // Skip browser checks
-                    '--disable-background-networking', // Reduce resource usage
-                    '--disable-blink-features=AutomationControlled', // Hide automation
-                    '--disable-web-security',          // Bypass some WAF checks
-                    '--disable-features=IsolateOrigins,site-per-process', // Performance
-                ]
             ]);
 
             // Create a new page
@@ -438,13 +428,15 @@ class Scraper
             $navigation = $page->navigate($url);
 
             // Wait for page to load (with timeout)
-            $navigation->waitForNavigation('networkIdle', $this->chromeTimeout * 1000);
+            // Use 'load' instead of 'networkIdle' to ensure external scripts load
+            $navigation->waitForNavigation('load', $this->chromeTimeout * 1000);
 
             // Additional wait for JavaScript challenges (e.g., Kasada, PerimeterX)
-            // Bot detection systems often execute JS after initial page load
-            sleep(3);
+            // Kasada loads external ips.js which needs time to execute
+            Logger::info("Waiting for JavaScript challenges to execute", ['url' => $url]);
+            sleep(5);
 
-            // Get the HTML content
+            // Get the HTML content after JS execution
             $html = $page->getHtml();
 
             $memoryAfter = memory_get_usage(true);
