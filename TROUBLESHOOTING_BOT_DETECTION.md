@@ -108,9 +108,22 @@ Otto.de is using **Kasada Protection SDK (KPSDK)** - a sophisticated anti-bot sy
 - JavaScript challenge page instead of product content
 
 ### Latest Code Updates (2025-10-22)
-1. Added 3-second sleep after page load for JS challenges
-2. Set realistic viewport size (1920x1080)
-3. Enhanced stealth flags
+
+**CRITICAL FIX**: Removed Chrome flags that were creating bot fingerprint
+- Custom flags (--disable-crash-reporter, --disable-gpu, etc.) were making us MORE detectable
+- Result: Went from 0% success (instant 717-byte blocks) to 50%+ success rate
+
+**INTELLIGENT POLLING**: Replaced random sleep with smart content detection
+- Polls HTML size every 0.5 seconds for up to 20 seconds
+- Stops immediately when real content loads (no wasted time)
+- Correctly detects both successful loads and bot blocks
+- Logs: "timed_out: true" for blocks, "elapsed_seconds: 0-5" for success
+
+**RANDOMIZED DELAYS**: Added unpredictable timing patterns
+- JavaScript wait time varies (prevents timing fingerprints)
+- Delay between requests randomized (base_delay × 1-2)
+
+**Result**: ~50% success rate with proper detection of blocks vs. legitimate pages
 
 ### If Kasada Detection Persists
 
