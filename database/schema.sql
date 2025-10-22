@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS products (
     site_status VARCHAR(20),
     url VARCHAR(250) NOT NULL,
     url_status ENUM('unchecked', 'valid', 'invalid', 'error') DEFAULT 'unchecked' COMMENT 'Tracks URL validity: unchecked=not scraped yet, valid=working with data, invalid=dead/no data, error=network/load failure',
+    consecutive_failed_scrapes INT DEFAULT 0 COMMENT 'Counter for consecutive scrapes that returned no data - reset on successful scrape',
     name VARCHAR(255),
     description TEXT,
     image_url VARCHAR(512),
@@ -25,7 +26,8 @@ CREATE TABLE IF NOT EXISTS products (
     INDEX idx_ean (ean),
     INDEX idx_site (site),
     INDEX idx_url (url),
-    INDEX idx_url_status (url_status)
+    INDEX idx_url_status (url_status),
+    INDEX idx_consecutive_failed_scrapes (consecutive_failed_scrapes)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Price history table: stores historical price data

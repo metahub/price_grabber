@@ -110,33 +110,46 @@ class Scraper
         }
 
         // Determine URL status based on extracted data
+        // Use consecutive failures to avoid marking valid URLs as invalid on temporary issues
         $hasData = !empty($data['price']) || !empty($data['name']);
+        $consecutiveFailures = 0;
+        $failureThreshold = 3; // Mark as invalid after 3 consecutive failures
 
         if ($hasData) {
-            // Successfully extracted data - mark as valid
+            // Successfully extracted data - mark as valid and reset failure counter
             $urlStatus = 'valid';
+            $consecutiveFailures = 0;
+            Logger::debug("Product scraped successfully, resetting failure counter", [
+                'product_id' => $productId,
+                'url' => $url
+            ]);
         } else {
-            // No data extracted - check if this product previously had data
+            // No data extracted - increment consecutive failure counter
             if ($productId) {
-                $hadData = $this->priceHistoryModel->hasHistory($productId);
-                if ($hadData) {
-                    // Product previously returned data but now doesn't - mark as invalid (discontinued/removed)
+                $existingProduct = $this->productModel->findByProductId($productId);
+                $consecutiveFailures = ($existingProduct['consecutive_failed_scrapes'] ?? 0) + 1;
+
+                if ($consecutiveFailures >= $failureThreshold) {
+                    // Failed too many times - mark as invalid
                     $urlStatus = 'invalid';
-                    Logger::warning("Product previously had data but now returns nothing - marking as invalid", [
+                    Logger::warning("Product failed {$consecutiveFailures} consecutive scrapes - marking as invalid", [
                         'product_id' => $productId,
-                        'url' => $url
+                        'url' => $url,
+                        'consecutive_failures' => $consecutiveFailures
                     ]);
                 } else {
-                    // Never had data - keep as unchecked (might be temporary issue, will retry)
+                    // Still under threshold - keep as unchecked to retry
                     $urlStatus = 'unchecked';
-                    Logger::info("Product has no data but never scraped successfully before - keeping as unchecked", [
+                    Logger::info("Product has no data ({$consecutiveFailures}/{$failureThreshold} failures) - keeping as unchecked for retry", [
                         'product_id' => $productId,
-                        'url' => $url
+                        'url' => $url,
+                        'consecutive_failures' => $consecutiveFailures
                     ]);
                 }
             } else {
                 // No product ID - keep as unchecked
                 $urlStatus = 'unchecked';
+                $consecutiveFailures = 1;
             }
         }
 
@@ -147,6 +160,7 @@ class Scraper
                 'price' => $data['price'] ?? null,
                 'site_status' => $data['site_status'] ?? null,
                 'url_status' => $urlStatus,
+                'consecutive_failed_scrapes' => $consecutiveFailures,
             ];
 
             if (!empty($data['name'])) {

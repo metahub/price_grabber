@@ -56,7 +56,7 @@ class Product
         $params = [':product_id' => $productId];
 
         $allowedFields = ['parent_id', 'sku', 'ean', 'site', 'site_product_id',
-                         'price', 'uvp', 'site_status', 'product_priority', 'url', 'url_status', 'name', 'description', 'image_url'];
+                         'price', 'uvp', 'site_status', 'product_priority', 'url', 'url_status', 'consecutive_failed_scrapes', 'name', 'description', 'image_url'];
 
         foreach ($allowedFields as $field) {
             if (array_key_exists($field, $data)) {
