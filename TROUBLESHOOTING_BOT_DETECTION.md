@@ -123,7 +123,13 @@ Otto.de is using **Kasada Protection SDK (KPSDK)** - a sophisticated anti-bot sy
 - JavaScript wait time varies (prevents timing fingerprints)
 - Delay between requests randomized (base_delay × 1-2)
 
-**Result**: ~50% success rate with proper detection of blocks vs. legitimate pages
+**Result**: ~45-50% first-attempt success rate with proper detection of blocks vs. legitimate pages
+
+**A/B TEST RESULTS (2025-10-22)**: Tested 100 products WITH vs WITHOUT Chrome flags:
+- WITH flags: 48% first-attempt success
+- WITHOUT flags: 45% first-attempt success
+- **Conclusion**: Chrome flags provide NO significant benefit (3% difference is within normal variance)
+- **Decision**: Keep code WITHOUT flags for cleaner implementation
 
 ### If Kasada Detection Persists
 
