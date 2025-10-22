@@ -412,6 +412,9 @@ class Scraper
                     '--no-first-run',                  // Skip first run wizards
                     '--no-default-browser-check',      // Skip browser checks
                     '--disable-background-networking', // Reduce resource usage
+                    '--disable-blink-features=AutomationControlled', // Hide automation
+                    '--disable-web-security',          // Bypass some WAF checks
+                    '--disable-features=IsolateOrigins,site-per-process', // Performance
                 ]
             ]);
 
@@ -436,9 +439,20 @@ class Scraper
             $memoryAfter = memory_get_usage(true);
             $memoryUsed = $memoryAfter - $memoryBefore;
 
+            $htmlLength = strlen($html);
+
+            // Check for suspiciously small responses (likely bot detection/error pages)
+            if ($htmlLength < 10000) {
+                Logger::warning("Received suspiciously small HTML response - possible bot detection", [
+                    'url' => $url,
+                    'html_length' => $htmlLength,
+                    'html_preview' => substr($html, 0, 500) // First 500 chars for debugging
+                ]);
+            }
+
             Logger::info("Successfully fetched URL with Chrome", [
                 'url' => $url,
-                'html_length' => strlen($html),
+                'html_length' => $htmlLength,
                 'memory_used_mb' => round($memoryUsed / 1024 / 1024, 2),
                 'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2)
             ]);
