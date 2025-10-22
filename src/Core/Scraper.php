@@ -421,6 +421,13 @@ class Scraper
             // Create a new page
             $page = $browser->createPage();
 
+            // Set realistic viewport size
+            try {
+                $page->setViewport(1920, 1080)->await();
+            } catch (\Exception $e) {
+                Logger::debug("Failed to set viewport", ['error' => $e->getMessage()]);
+            }
+
             // Optionally disable images for faster loading
             if ($this->chromeDisableImages) {
                 // Note: chrome-php doesn't have direct image blocking,
@@ -432,6 +439,10 @@ class Scraper
 
             // Wait for page to load (with timeout)
             $navigation->waitForNavigation('networkIdle', $this->chromeTimeout * 1000);
+
+            // Additional wait for JavaScript challenges (e.g., Kasada, PerimeterX)
+            // Bot detection systems often execute JS after initial page load
+            sleep(3);
 
             // Get the HTML content
             $html = $page->getHtml();

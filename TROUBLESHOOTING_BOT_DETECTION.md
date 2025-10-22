@@ -100,6 +100,47 @@ SET consecutive_failed_scrapes = 0
 WHERE consecutive_failed_scrapes < 3;
 ```
 
+## Kasada Bot Detection (Latest Finding)
+
+Otto.de is using **Kasada Protection SDK (KPSDK)** - a sophisticated anti-bot system. When detected, you'll see:
+- HTML responses of 717-776 bytes
+- HTML preview shows: `<script>window.KPSDK={};...`
+- JavaScript challenge page instead of product content
+
+### Latest Code Updates (2025-10-22)
+1. Added 3-second sleep after page load for JS challenges
+2. Set realistic viewport size (1920x1080)
+3. Enhanced stealth flags
+
+### If Kasada Detection Persists
+
+**The hard truth**: Kasada is one of the most sophisticated bot detection systems. It:
+- Detects headless Chrome even with stealth flags
+- Analyzes browser fingerprints
+- Checks JavaScript execution patterns
+- May require specialized tools to bypass
+
+**Recommended Solutions (in order)**:
+
+1. **Slow down scraping significantly**
+   - Set `scraper_delay` to 10-15 seconds between requests
+   - Run scraper less frequently (every 12-24 hours instead of hourly)
+
+2. **Try different times of day**
+   - Bot detection may be less strict during off-peak hours
+
+3. **Use residential proxies with IP rotation**
+   - Required for consistent bypassing
+   - Services: Bright Data, Smartproxy, Oxylabs
+
+4. **Consider switching to Puppeteer with puppeteer-extra-stealth**
+   - More advanced evasion techniques
+   - Requires Node.js implementation
+
+5. **Use a scraping service API**
+   - Services like ScrapingBee, ScraperAPI handle bot detection
+   - Costs money but works reliably
+
 ## Advanced Solutions (If Bot Detection Persists)
 
 ### Option 1: Rotate User Agents
