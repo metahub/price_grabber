@@ -110,21 +110,33 @@ class Scraper
         }
 
         // Determine URL status based on extracted data
-        $urlStatus = 'invalid'; // Default to invalid
         $hasData = !empty($data['price']) || !empty($data['name']);
 
         if ($hasData) {
+            // Successfully extracted data - mark as valid
             $urlStatus = 'valid';
         } else {
-            // Check if this product previously had data
+            // No data extracted - check if this product previously had data
             if ($productId) {
                 $hadData = $this->priceHistoryModel->hasHistory($productId);
                 if ($hadData) {
-                    Logger::warning("Product previously had data but now returns nothing", [
+                    // Product previously returned data but now doesn't - mark as invalid (discontinued/removed)
+                    $urlStatus = 'invalid';
+                    Logger::warning("Product previously had data but now returns nothing - marking as invalid", [
+                        'product_id' => $productId,
+                        'url' => $url
+                    ]);
+                } else {
+                    // Never had data - keep as unchecked (might be temporary issue, will retry)
+                    $urlStatus = 'unchecked';
+                    Logger::info("Product has no data but never scraped successfully before - keeping as unchecked", [
                         'product_id' => $productId,
                         'url' => $url
                     ]);
                 }
+            } else {
+                // No product ID - keep as unchecked
+                $urlStatus = 'unchecked';
             }
         }
 
