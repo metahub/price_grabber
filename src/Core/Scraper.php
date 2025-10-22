@@ -314,9 +314,14 @@ class Scraper
                     $this->itemLockModel->releaseLock($product['product_id']);
                 }
 
-                // Delay between requests
+                // Delay between requests (randomized to avoid predictable patterns)
                 if ($this->delay > 0) {
-                    sleep($this->delay);
+                    $randomDelay = rand($this->delay, $this->delay * 2);
+                    Logger::debug("Applying delay between requests", [
+                        'base_delay' => $this->delay,
+                        'actual_delay' => $randomDelay
+                    ]);
+                    sleep($randomDelay);
                 }
             } catch (\Exception $e) {
                 Logger::error("Error scraping product", [
@@ -433,8 +438,13 @@ class Scraper
 
             // Additional wait for JavaScript challenges (e.g., Kasada, PerimeterX)
             // Kasada loads external ips.js which needs time to execute
-            Logger::info("Waiting for JavaScript challenges to execute", ['url' => $url]);
-            sleep(5);
+            // Use random delay to avoid predictable bot patterns
+            $jsWaitTime = rand(3, 7); // 3-7 seconds, random
+            Logger::info("Waiting for JavaScript challenges to execute", [
+                'url' => $url,
+                'wait_seconds' => $jsWaitTime
+            ]);
+            sleep($jsWaitTime);
 
             // Get the HTML content after JS execution
             $html = $page->getHtml();
