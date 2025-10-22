@@ -15,7 +15,7 @@ $priceHistoryModel = new PriceHistory();
 
 // Get filter parameters
 $search = isset($_GET['search']) ? $_GET['search'] : '';
-$parentFilter = isset($_GET['parent_filter']) ? $_GET['parent_filter'] : '';
+$dataFilter = isset($_GET['data_filter']) ? $_GET['data_filter'] : '';
 $sellers = isset($_GET['sellers']) ? $_GET['sellers'] : [];
 $priorities = isset($_GET['priorities']) ? $_GET['priorities'] : [];
 
@@ -29,8 +29,8 @@ $filters = [];
 if (!empty($search)) {
     $filters['search'] = $search;
 }
-if ($parentFilter === 'parents_only') {
-    $filters['parent_id'] = 'null';
+if (!empty($dataFilter)) {
+    $filters['data_filter'] = $dataFilter;
 }
 if (!empty($sellers) && is_array($sellers)) {
     $filters['sellers'] = $sellers;
@@ -151,7 +151,7 @@ View::display('products.html.twig', [
     'current_page' => 'products',
     'products' => $productsWithPrices,
     'search' => $search,
-    'parent_filter' => $parentFilter,
+    'data_filter' => $dataFilter,
     'selected_sellers' => $sellers,
     'all_sellers' => $allSellers,
     'selected_priorities' => $priorities,

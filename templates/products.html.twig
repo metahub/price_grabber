@@ -12,8 +12,8 @@
                 {% if search %}
                     <input type="hidden" name="search" value="{{ search }}" />
                 {% endif %}
-                {% if parent_filter %}
-                    <input type="hidden" name="parent_filter" value="{{ parent_filter }}" />
+                {% if data_filter %}
+                    <input type="hidden" name="data_filter" value="{{ data_filter }}" />
                 {% endif %}
                 {% for priority in selected_priorities %}
                     <input type="hidden" name="priorities[]" value="{{ priority }}" />
@@ -126,10 +126,13 @@
                     </div>
                 {% endif %}
 
-                <select name="parent_filter" class="select w-auto">
+                <select name="data_filter" class="select w-auto">
                     <option value="">All Products</option>
-                    <option value="parents_only" {% if parent_filter == 'parents_only' %}selected{% endif %}>
-                        Parent Products Only
+                    <option value="with_data" {% if data_filter == 'with_data' %}selected{% endif %}>
+                        Only With Data
+                    </option>
+                    <option value="without_data" {% if data_filter == 'without_data' %}selected{% endif %}>
+                        Only Without Data
                     </option>
                 </select>
 
@@ -509,7 +512,7 @@
                     <div class="flex gap-2">
                         {# Previous button #}
                         {% if page > 1 %}
-                            <a href="?page={{ page - 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page={{ page - 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
                                class="btn btn-outline">
                                 Previous
                             </a>
@@ -520,7 +523,7 @@
                         {% set end_page = min(total_pages, page + 2) %}
 
                         {% if start_page > 1 %}
-                            <a href="?page=1&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page=1&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
                                class="btn btn-outline">
                                 1
                             </a>
@@ -530,7 +533,7 @@
                         {% endif %}
 
                         {% for p in start_page..end_page %}
-                            <a href="?page={{ p }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page={{ p }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
                                class="btn {% if p == page %}btn-primary{% else %}btn-outline{% endif %}">
                                 {{ p }}
                             </a>
@@ -540,7 +543,7 @@
                             {% if end_page < total_pages - 1 %}
                                 <span class="px-3 py-2">...</span>
                             {% endif %}
-                            <a href="?page={{ total_pages }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page={{ total_pages }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
                                class="btn btn-outline">
                                 {{ total_pages }}
                             </a>
@@ -548,7 +551,7 @@
 
                         {# Next button #}
                         {% if page < total_pages %}
-                            <a href="?page={{ page + 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if parent_filter %}&parent_filter={{ parent_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
+                            <a href="?page={{ page + 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}"
                                class="btn btn-outline">
                                 Next
                             </a>

@@ -157,6 +157,16 @@ class Product
             $params[':search5'] = $searchValue;
         }
 
+        if (!empty($filters['data_filter'])) {
+            if ($filters['data_filter'] === 'with_data') {
+                // Only show products that have price history data
+                $sql .= " AND EXISTS (SELECT 1 FROM price_history WHERE price_history.product_id = p.product_id)";
+            } elseif ($filters['data_filter'] === 'without_data') {
+                // Only show products that don't have price history data
+                $sql .= " AND NOT EXISTS (SELECT 1 FROM price_history WHERE price_history.product_id = p.product_id)";
+            }
+        }
+
         if (isset($filters['parent_id'])) {
             if ($filters['parent_id'] === 'null') {
                 $sql .= " AND p.parent_id IS NULL";
@@ -258,6 +268,16 @@ class Product
             $params[':search3'] = $searchValue;
             $params[':search4'] = $searchValue;
             $params[':search5'] = $searchValue;
+        }
+
+        if (!empty($filters['data_filter'])) {
+            if ($filters['data_filter'] === 'with_data') {
+                // Only show products that have price history data
+                $sql .= " AND EXISTS (SELECT 1 FROM price_history WHERE price_history.product_id = p.product_id)";
+            } elseif ($filters['data_filter'] === 'without_data') {
+                // Only show products that don't have price history data
+                $sql .= " AND NOT EXISTS (SELECT 1 FROM price_history WHERE price_history.product_id = p.product_id)";
+            }
         }
 
         if (isset($filters['parent_id'])) {
