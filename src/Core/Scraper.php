@@ -109,11 +109,19 @@ class Scraper
             }
         }
 
-        // Determine URL status based on extracted data
-        // Use consecutive failures to avoid marking valid URLs as invalid on temporary issues
-        $hasData = !empty($data['price']) || !empty($data['name']);
+        // Determine URL status with intelligent failure detection
+        $hasPrice = !empty($data['price']);
+        $hasSeller = !empty($data['seller']);
+        $hasName = !empty($data['name']);
+        $hasData = $hasPrice || $hasName;
+        $htmlSize = strlen($html);
         $consecutiveFailures = 0;
-        $failureThreshold = 3; // Mark as invalid after 3 consecutive failures
+
+        // Detect specific failure types
+        $is404 = $this->is404Page($html);
+        $isKasadaBlock = $htmlSize < 10000; // Small response = bot detection
+        $isTemporarilyUnavailable = !empty($data['availability']) &&
+            in_array($data['availability'], ['out_of_stock', 'limited']);
 
         if ($hasData) {
             // Successfully extracted data - mark as valid and reset failure counter
@@ -124,32 +132,65 @@ class Scraper
                 'url' => $url
             ]);
         } else {
-            // No data extracted - increment consecutive failure counter
-            if ($productId) {
-                $existingProduct = $this->productModel->findByProductId($productId);
-                $consecutiveFailures = ($existingProduct['consecutive_failed_scrapes'] ?? 0) + 1;
+            // No data extracted - determine why and handle accordingly
 
-                if ($consecutiveFailures >= $failureThreshold) {
-                    // Failed too many times - mark as invalid
-                    $urlStatus = 'invalid';
-                    Logger::warning("Product failed {$consecutiveFailures} consecutive scrapes - marking as invalid", [
-                        'product_id' => $productId,
-                        'url' => $url,
-                        'consecutive_failures' => $consecutiveFailures
-                    ]);
-                } else {
-                    // Still under threshold - keep as unchecked to retry
-                    $urlStatus = 'unchecked';
-                    Logger::info("Product has no data ({$consecutiveFailures}/{$failureThreshold} failures) - keeping as unchecked for retry", [
-                        'product_id' => $productId,
-                        'url' => $url,
-                        'consecutive_failures' => $consecutiveFailures
-                    ]);
-                }
-            } else {
-                // No product ID - keep as unchecked
+            if ($is404) {
+                // IMMEDIATE INVALID: Page doesn't exist (404)
+                $urlStatus = 'invalid';
+                $consecutiveFailures = 0; // Don't increment, it's permanently invalid
+                Logger::warning("404 page detected - marking as invalid immediately", [
+                    'product_id' => $productId,
+                    'url' => $url
+                ]);
+            } elseif ($htmlSize >= 10000 && !$hasPrice && !$hasSeller) {
+                // IMMEDIATE INVALID: Got past bot detection but page has no price/seller
+                // This means wrong URL or product removed
+                $urlStatus = 'invalid';
+                $consecutiveFailures = 0; // Don't increment, it's permanently invalid
+                Logger::warning("Large HTML but no price/seller data - marking as invalid immediately", [
+                    'product_id' => $productId,
+                    'url' => $url,
+                    'html_size' => $htmlSize
+                ]);
+            } elseif ($isKasadaBlock) {
+                // NEVER INVALID: Kasada block - keep retrying forever
                 $urlStatus = 'unchecked';
-                $consecutiveFailures = 1;
+                if ($productId) {
+                    $existingProduct = $this->productModel->findByProductId($productId);
+                    $consecutiveFailures = ($existingProduct['consecutive_failed_scrapes'] ?? 0) + 1;
+                } else {
+                    $consecutiveFailures = 1;
+                }
+                Logger::info("Kasada block detected - will keep retrying", [
+                    'product_id' => $productId,
+                    'url' => $url,
+                    'html_size' => $htmlSize,
+                    'consecutive_failures' => $consecutiveFailures
+                ]);
+            } elseif ($isTemporarilyUnavailable) {
+                // NEVER INVALID: Product exists but temporarily out of stock
+                $urlStatus = 'unchecked';
+                $consecutiveFailures = 0; // Reset counter, it's not a failure
+                Logger::info("Product temporarily unavailable - will keep retrying", [
+                    'product_id' => $productId,
+                    'url' => $url,
+                    'availability' => $data['availability']
+                ]);
+            } else {
+                // Unknown failure - keep as unchecked but don't increment counter much
+                $urlStatus = 'unchecked';
+                if ($productId) {
+                    $existingProduct = $this->productModel->findByProductId($productId);
+                    $consecutiveFailures = ($existingProduct['consecutive_failed_scrapes'] ?? 0) + 1;
+                } else {
+                    $consecutiveFailures = 1;
+                }
+                Logger::info("Unknown failure type - keeping as unchecked", [
+                    'product_id' => $productId,
+                    'url' => $url,
+                    'html_size' => $htmlSize,
+                    'consecutive_failures' => $consecutiveFailures
+                ]);
             }
         }
 
@@ -667,5 +708,52 @@ class Scraper
         }
 
         return 'unknown';
+    }
+
+    /**
+     * Detect if HTML is a 404 page
+     *
+     * @param string $html The HTML content
+     * @return bool True if 404 page detected
+     */
+    private function is404Page($html)
+    {
+        $htmlLower = strtolower($html);
+
+        // Check for common 404 indicators
+        $indicators = [
+            '404',
+            'not found',
+            'seite nicht gefunden', // German
+            'page not found',
+            'diese seite existiert nicht', // German
+            'fehler 404', // German
+            'error 404',
+            'page doesn\'t exist',
+            'nicht verfügbar', // German "not available"
+        ];
+
+        // Check title and common error containers
+        if (preg_match('/<title[^>]*>(.*?)<\/title>/is', $html, $matches)) {
+            $title = strtolower($matches[1]);
+            foreach ($indicators as $indicator) {
+                if (strpos($title, $indicator) !== false) {
+                    return true;
+                }
+            }
+        }
+
+        // Check for 404 in the first 2000 characters (headers, error messages usually appear early)
+        $htmlStart = substr($htmlLower, 0, 2000);
+        foreach ($indicators as $indicator) {
+            if (strpos($htmlStart, $indicator) !== false) {
+                // Make sure it's not just in a meta tag or script
+                if (preg_match('/[>\s]' . preg_quote($indicator, '/') . '[<\s]/i', $htmlStart)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
