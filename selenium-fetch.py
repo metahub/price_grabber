@@ -33,19 +33,67 @@ def fetch_url(url, timeout=60, wait_time=15, headless=True):
     if headless:
         options.add_argument('--headless=new')
 
-    # Additional options for stability
+    # Stability options
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--window-size=1920,1080')
 
+    # Enhanced stealth options to avoid detection
+    options.add_argument('--disable-blink-features=AutomationControlled')
+    options.add_argument('--disable-automation')
+    options.add_argument('--disable-infobars')
+    options.add_argument('--start-maximized')
+    options.add_argument('--disable-extensions')
+    options.add_argument('--disable-popup-blocking')
+    options.add_argument('--disable-notifications')
+    options.add_argument('--disable-web-security')
+    options.add_argument('--ignore-certificate-errors')
+    options.add_argument('--lang=de-DE,de')
+    options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36')
+
+    # Experimental options to hide automation
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option('useAutomationExtension', False)
+    options.add_experimental_option("prefs", {
+        "credentials_enable_service": False,
+        "profile.password_manager_enabled": False,
+        "profile.default_content_setting_values.notifications": 2
+    })
+
     driver = None
 
     try:
-        # Create undetected Chrome driver
-        driver = uc.Chrome(options=options, version_main=None)
+        # Create undetected Chrome driver with enhanced stealth
+        driver = uc.Chrome(options=options, version_main=None, use_subprocess=True)
 
         # Set page load timeout
         driver.set_page_load_timeout(timeout)
+
+        # Inject JavaScript BEFORE navigating to hide automation
+        try:
+            driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                'source': '''
+                    Object.defineProperty(navigator, 'webdriver', {
+                        get: () => undefined
+                    });
+                    Object.defineProperty(navigator, 'plugins', {
+                        get: () => [1, 2, 3, 4, 5]
+                    });
+                    Object.defineProperty(navigator, 'languages', {
+                        get: () => ['de-DE', 'de', 'en-US', 'en']
+                    });
+                    window.chrome = {
+                        runtime: {}
+                    };
+                    Object.defineProperty(navigator, 'permissions', {
+                        get: () => ({
+                            query: () => Promise.resolve({ state: 'prompt' })
+                        })
+                    });
+                '''
+            })
+        except Exception as e:
+            print(f"Warning: Could not inject stealth JavaScript: {e}", file=sys.stderr)
 
         # Navigate to URL
         driver.get(url)
