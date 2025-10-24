@@ -39,26 +39,18 @@ def fetch_url(url, timeout=60, wait_time=15, headless=True):
     options.add_argument('--window-size=1920,1080')
 
     # Enhanced stealth options to avoid detection
+    # Note: undetected-chromedriver already handles many stealth options
     options.add_argument('--disable-blink-features=AutomationControlled')
-    options.add_argument('--disable-automation')
-    options.add_argument('--disable-infobars')
-    options.add_argument('--start-maximized')
-    options.add_argument('--disable-extensions')
-    options.add_argument('--disable-popup-blocking')
-    options.add_argument('--disable-notifications')
-    options.add_argument('--disable-web-security')
-    options.add_argument('--ignore-certificate-errors')
     options.add_argument('--lang=de-DE,de')
-    options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36')
+    options.add_argument('--disable-notifications')
 
-    # Experimental options to hide automation
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option('useAutomationExtension', False)
-    options.add_experimental_option("prefs", {
+    # Set user preferences to appear more like a real browser
+    prefs = {
         "credentials_enable_service": False,
         "profile.password_manager_enabled": False,
         "profile.default_content_setting_values.notifications": 2
-    })
+    }
+    options.add_experimental_option("prefs", prefs)
 
     driver = None
 
