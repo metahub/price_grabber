@@ -425,11 +425,24 @@ class Scraper
         $headless = 'true'; // Headless mode (requires Xvfb on servers)
 
         // Check for virtual environment python (preferred for servers)
-        $venvPythonPath = __DIR__ . '/../../venv/bin/python3';
-        $pythonBinary = file_exists($venvPythonPath) ? $venvPythonPath : 'python3';
+        // Try multiple locations for releases-based deployments
+        $venvLocations = [
+            __DIR__ . '/../../venv/bin/python3',  // Release directory
+            __DIR__ . '/../../../venv/bin/python3',  // Shared/parent directory (Capistrano-style)
+            __DIR__ . '/../../../../venv/bin/python3',  // Project root above releases
+        ];
 
-        if ($pythonBinary === $venvPythonPath) {
-            Logger::debug("Using virtual environment Python", ['python_path' => $venvPythonPath]);
+        $pythonBinary = 'python3';  // Default fallback
+        foreach ($venvLocations as $venvPath) {
+            if (file_exists($venvPath)) {
+                $pythonBinary = $venvPath;
+                Logger::debug("Using virtual environment Python", ['python_path' => $venvPath]);
+                break;
+            }
+        }
+
+        if ($pythonBinary === 'python3') {
+            Logger::debug("Virtual environment not found, using system python3");
         }
 
         // Check if xvfb-run is available (for headless servers)
