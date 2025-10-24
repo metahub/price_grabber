@@ -12,9 +12,30 @@ This guide covers installing and configuring Selenium with undetected-chromedriv
 
 ### 1. Install Python Dependencies
 
+**For servers (recommended - using virtual environment):**
+
+```bash
+# Create virtual environment in project root
+python3 -m venv /var/www/tools/price_grabber/venv
+
+# Install packages in venv
+/var/www/tools/price_grabber/venv/bin/pip install selenium undetected-chromedriver setuptools
+
+# Verify installation
+/var/www/tools/price_grabber/venv/bin/python3 -c "import selenium; import undetected_chromedriver; print('Success')"
+```
+
+**For local development (if system allows):**
+
 ```bash
 pip3 install selenium undetected-chromedriver
+# Or with --user flag
+pip3 install --user selenium undetected-chromedriver
 ```
+
+**Note:** On Python 3.13+, you may need `setuptools` for distutils compatibility.
+
+The PHP scraper automatically detects and uses the venv if it exists at `venv/bin/python3`, otherwise it falls back to system `python3`.
 
 ### 2. Install Chrome/Chromium
 
@@ -57,9 +78,9 @@ which xvfb-run
 python3 selenium-fetch.py "https://www.otto.de/p/?moin=M00PJC0055" 90 15 true
 ```
 
-### Test on Headless Server (with Xvfb):
+### Test on Headless Server (with venv and Xvfb):
 ```bash
-xvfb-run python3 selenium-fetch.py "https://www.otto.de/p/?moin=M00PJC0055" 90 15 true
+xvfb-run /var/www/tools/price_grabber/venv/bin/python3 selenium-fetch.py "https://www.otto.de/p/?moin=M00PJC0055" 90 15 true
 ```
 
 ### Expected Output:
@@ -69,10 +90,17 @@ xvfb-run python3 selenium-fetch.py "https://www.otto.de/p/?moin=M00PJC0055" 90 1
 
 ## How It Works
 
-### Automatic Xvfb Detection
+### Automatic Environment Detection
 
-The PHP scraper (`src/Core/Scraper.php`) automatically detects if `xvfb-run` is available:
+The PHP scraper (`src/Core/Scraper.php`) automatically adapts to the environment:
 
+**Python Virtual Environment:**
+- Checks for `venv/bin/python3` in project root
+- Uses venv if found, otherwise falls back to system `python3`
+- Logs which Python is being used
+
+**Xvfb Detection:**
+- Checks if `xvfb-run` is available
 - **With Xvfb** (headless server): Wraps command with `xvfb-run -a`
 - **Without Xvfb** (local machine with display): Runs command directly
 

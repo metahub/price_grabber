@@ -9,9 +9,6 @@ use PriceGrabber\Models\Settings;
 use PriceGrabber\Models\ItemLock;
 use DOMDocument;
 use DOMXPath;
-use HeadlessChromium\BrowserFactory;
-use HeadlessChromium\Exception\CommunicationException;
-use HeadlessChromium\Exception\NoResponseAvailable;
 
 class Scraper
 {
@@ -20,16 +17,12 @@ class Scraper
     private $scraperConfigModel;
     private $settingsModel;
     private $itemLockModel;
-    private $userAgent;
     private $delay;
     private $minInterval;
     private $itemLockTimeout;
 
-    // Chrome headless browser settings
+    // Selenium settings
     private $chromeEnabled;
-    private $chromeBinaryPath;
-    private $chromeTimeout;
-    private $chromeDisableImages;
 
     // Bot detection tracking
     private $botChallenges = 0;
@@ -48,16 +41,12 @@ class Scraper
         $this->itemLockModel = new ItemLock();
 
         // Load scraper settings from database
-        $this->userAgent = $this->settingsModel->get('scraper_user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
         $this->delay = $this->settingsModel->get('scraper_delay', 1);
         $this->minInterval = $this->settingsModel->get('scraper_min_interval', 3600);
         $this->itemLockTimeout = $this->settingsModel->get('item_lock_timeout_seconds', 180);
 
-        // Chrome headless browser configuration
-        $this->chromeEnabled = $this->settingsModel->get('chrome_enabled', false);
-        $this->chromeBinaryPath = $this->settingsModel->get('chrome_binary_path', '/usr/bin/chromium-browser');
-        $this->chromeTimeout = $this->settingsModel->get('chrome_timeout', 60);
-        $this->chromeDisableImages = $this->settingsModel->get('chrome_disable_images', true);
+        // Selenium configuration (enabled by default for bot detection bypass)
+        $this->chromeEnabled = $this->settingsModel->get('chrome_enabled', true);
     }
 
     /**
@@ -435,6 +424,14 @@ class Scraper
         $waitTime = 15; // Wait for Kasada challenge
         $headless = 'true'; // Headless mode (requires Xvfb on servers)
 
+        // Check for virtual environment python (preferred for servers)
+        $venvPythonPath = __DIR__ . '/../../venv/bin/python3';
+        $pythonBinary = file_exists($venvPythonPath) ? $venvPythonPath : 'python3';
+
+        if ($pythonBinary === $venvPythonPath) {
+            Logger::debug("Using virtual environment Python", ['python_path' => $venvPythonPath]);
+        }
+
         // Check if xvfb-run is available (for headless servers)
         $hasXvfb = false;
         exec('which xvfb-run 2>/dev/null', $xvfbCheck, $xvfbReturnCode);
@@ -444,7 +441,8 @@ class Scraper
         }
 
         $pythonCommand = sprintf(
-            'python3 %s %s %d %d %s 2>&1',
+            '%s %s %s %d %d %s 2>&1',
+            $pythonBinary,
             escapeshellarg($scriptPath),
             escapeshellarg($url),
             $timeout,
