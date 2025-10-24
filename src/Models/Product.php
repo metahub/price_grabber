@@ -17,9 +17,9 @@ class Product
     public function create($data)
     {
         $sql = "INSERT INTO products (product_id, parent_id, sku, ean, site, site_product_id,
-                price, uvp, site_status, product_priority, url, name, description, image_url)
+                price, uvp, site_status, product_priority, url, name, description, image_url, scraping_enabled)
                 VALUES (:product_id, :parent_id, :sku, :ean, :site, :site_product_id,
-                :price, :uvp, :site_status, :product_priority, :url, :name, :description, :image_url)";
+                :price, :uvp, :site_status, :product_priority, :url, :name, :description, :image_url, :scraping_enabled)";
 
         try {
             $this->db->execute($sql, [
@@ -37,6 +37,7 @@ class Product
                 ':name' => $data['name'] ?? null,
                 ':description' => $data['description'] ?? null,
                 ':image_url' => $data['image_url'] ?? null,
+                ':scraping_enabled' => $data['scraping_enabled'] ?? 1,
             ]);
 
             Logger::info('Product created', ['product_id' => $data['product_id']]);
@@ -56,7 +57,7 @@ class Product
         $params = [':product_id' => $productId];
 
         $allowedFields = ['parent_id', 'sku', 'ean', 'site', 'site_product_id',
-                         'price', 'uvp', 'site_status', 'product_priority', 'url', 'url_status', 'consecutive_failed_scrapes', 'name', 'description', 'image_url'];
+                         'price', 'uvp', 'site_status', 'product_priority', 'url', 'url_status', 'consecutive_failed_scrapes', 'name', 'description', 'image_url', 'scraping_enabled'];
 
         foreach ($allowedFields as $field) {
             if (array_key_exists($field, $data)) {
@@ -216,6 +217,14 @@ class Product
             }
         }
 
+        if (!empty($filters['scraping_filter'])) {
+            if ($filters['scraping_filter'] === 'enabled') {
+                $sql .= " AND p.scraping_enabled = 1";
+            } elseif ($filters['scraping_filter'] === 'disabled') {
+                $sql .= " AND p.scraping_enabled = 0";
+            }
+        }
+
         $sql .= " ORDER BY p.product_id ASC";
 
         // Add pagination to SQL before preparing
@@ -344,6 +353,14 @@ class Product
             }
         }
 
+        if (!empty($filters['scraping_filter'])) {
+            if ($filters['scraping_filter'] === 'enabled') {
+                $sql .= " AND p.scraping_enabled = 1";
+            } elseif ($filters['scraping_filter'] === 'disabled') {
+                $sql .= " AND p.scraping_enabled = 0";
+            }
+        }
+
         $result = $this->db->fetchOne($sql, $params);
         return $result ? (int)$result['total'] : 0;
     }
@@ -418,7 +435,8 @@ class Product
                     GROUP BY product_id
                 ) ph ON p.product_id = ph.product_id
                 WHERE (ph.last_fetch IS NULL
-                   OR ph.last_fetch < DATE_SUB(NOW(), INTERVAL :interval SECOND))";
+                   OR ph.last_fetch < DATE_SUB(NOW(), INTERVAL :interval SECOND))
+                AND p.scraping_enabled = 1";
 
         // By default, exclude products with invalid URLs
         if (!$includeInvalid) {

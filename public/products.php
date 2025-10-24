@@ -16,6 +16,7 @@ $priceHistoryModel = new PriceHistory();
 // Get filter parameters
 $search = isset($_GET['search']) ? $_GET['search'] : '';
 $dataFilter = isset($_GET['data_filter']) ? $_GET['data_filter'] : '';
+$scrapingFilter = isset($_GET['scraping_filter']) ? $_GET['scraping_filter'] : '';
 $sellers = isset($_GET['sellers']) ? $_GET['sellers'] : [];
 $priorities = isset($_GET['priorities']) ? $_GET['priorities'] : [];
 $urlStatuses = isset($_GET['url_statuses']) ? $_GET['url_statuses'] : [];
@@ -32,6 +33,9 @@ if (!empty($search)) {
 }
 if (!empty($dataFilter)) {
     $filters['data_filter'] = $dataFilter;
+}
+if (!empty($scrapingFilter)) {
+    $filters['scraping_filter'] = $scrapingFilter;
 }
 if (!empty($sellers) && is_array($sellers)) {
     $filters['sellers'] = $sellers;
@@ -113,6 +117,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         'Description',
         'URL',
         'URL Status',
+        'Scraping Enabled',
         'Price',
         'UVP',
         'Site Status',
@@ -139,6 +144,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             $product['description'],
             $product['url'],
             $product['url_status'],
+            $product['scraping_enabled'] == 1 ? 'Yes' : 'No',
             $product['price'],
             $product['uvp'],
             $product['site_status'],
@@ -161,6 +167,7 @@ View::display('products.html.twig', [
     'products' => $productsWithPrices,
     'search' => $search,
     'data_filter' => $dataFilter,
+    'scraping_filter' => $scrapingFilter,
     'selected_sellers' => $sellers,
     'all_sellers' => $allSellers,
     'selected_priorities' => $priorities,

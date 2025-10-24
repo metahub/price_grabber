@@ -49,16 +49,18 @@
                         <li>price (optional)</li>
                         <li>uvp (optional)</li>
                         <li>site_status (optional)</li>
+                        <li>product_priority (optional: white, grey, black, unknown - default: unknown)</li>
                         <li>url (required)</li>
                         <li>name (optional)</li>
                         <li>description (optional)</li>
+                        <li>scraping_enabled (optional: 1=enabled, 0=disabled - default: 1)</li>
                     </ol>
                 </div>
                 <div class="mt-3">
                     <div class="font-semibold mb-1">Example:</div>
                     <div class="bg-muted p-2 rounded font-mono text-xs overflow-x-auto">
-                        <div class="whitespace-nowrap">PROD001		SKU123	1234567890123	amazon	B08X123	29.99	39.99	active	https://example.com/product	Example Product	Product description</div>
-                        <div class="whitespace-nowrap">PROD002	PROD001	SKU124	1234567890124	amazon	B08X124	19.99	29.99	active	https://example.com/product-variant	Example Product - Small	Size Small variant</div>
+                        <div class="whitespace-nowrap">PROD001		SKU123	1234567890123	amazon	B08X123	29.99	39.99	active	white	https://example.com/product	Example Product	Product description	1</div>
+                        <div class="whitespace-nowrap">PROD002	PROD001	SKU124	1234567890124	amazon	B08X124	19.99	29.99	active	white	https://example.com/product-variant	Example Product - Small	Size Small variant	1</div>
                     </div>
                 </div>
             </div>
@@ -101,6 +103,8 @@
             <li>For child products (variants), specify the Parent ID to link them to their parent product</li>
             <li>URLs must be complete (including http:// or https://)</li>
             <li>Empty columns can be left blank (just use multiple tabs)</li>
+            <li>Product priority options: <code>white</code>, <code>grey</code>, <code>black</code>, or <code>unknown</code></li>
+            <li>Use <code>scraping_enabled</code> column (1 or 0) to control whether a product should be scraped - defaults to 1 (enabled) if omitted</li>
         </ul>
     </div>
 </div>

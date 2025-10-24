@@ -15,6 +15,9 @@
                 {% if data_filter %}
                     <input type="hidden" name="data_filter" value="{{ data_filter }}" />
                 {% endif %}
+                {% if scraping_filter %}
+                    <input type="hidden" name="scraping_filter" value="{{ scraping_filter }}" />
+                {% endif %}
                 {% for priority in selected_priorities %}
                     <input type="hidden" name="priorities[]" value="{{ priority }}" />
                 {% endfor %}
@@ -136,6 +139,16 @@
                     </option>
                     <option value="without_data" {% if data_filter == 'without_data' %}selected{% endif %}>
                         Only Without Data
+                    </option>
+                </select>
+
+                <select name="scraping_filter" class="select w-auto">
+                    <option value="">All Scraping Status</option>
+                    <option value="enabled" {% if scraping_filter == 'enabled' %}selected{% endif %}>
+                        Scraping Enabled
+                    </option>
+                    <option value="disabled" {% if scraping_filter == 'disabled' %}selected{% endif %}>
+                        Scraping Disabled
                     </option>
                 </select>
 
@@ -573,6 +586,7 @@
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Product</th>
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Priority</th>
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">URL Status</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Scraping</th>
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Latest Price</th>
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Last Checked</th>
                             <th class="text-left py-3 px-4 font-semibold text-sm text-muted-foreground">Actions</th>
@@ -639,6 +653,17 @@
                                     {% endif %}
                                 </td>
                                 <td class="py-3 px-4">
+                                    {% if product.scraping_enabled == 1 %}
+                                        <span class="badge border-transparent bg-green-600 text-white">
+                                            Enabled
+                                        </span>
+                                    {% else %}
+                                        <span class="badge border-transparent bg-red-600 text-white">
+                                            Disabled
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 px-4">
                                     {% if product.latest_price %}
                                         <span class="font-semibold text-green-600">
                                             {{ product.latest_price.currency }}
@@ -681,7 +706,7 @@
                     <div class="flex gap-2">
                         {# Previous button #}
                         {% if page > 1 %}
-                            <a href="?page={{ page - 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}{% for url_status in selected_url_statuses %}&url_statuses[]={{ url_status }}{% endfor %}"
+                            <a href="?page={{ page - 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% if scraping_filter %}&scraping_filter={{ scraping_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}{% for url_status in selected_url_statuses %}&url_statuses[]={{ url_status }}{% endfor %}"
                                class="btn btn-outline">
                                 Previous
                             </a>
@@ -692,7 +717,7 @@
                         {% set end_page = min(total_pages, page + 2) %}
 
                         {% if start_page > 1 %}
-                            <a href="?page=1&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}{% for url_status in selected_url_statuses %}&url_statuses[]={{ url_status }}{% endfor %}"
+                            <a href="?page=1&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% if scraping_filter %}&scraping_filter={{ scraping_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}{% for url_status in selected_url_statuses %}&url_statuses[]={{ url_status }}{% endfor %}"
                                class="btn btn-outline">
                                 1
                             </a>
@@ -702,7 +727,7 @@
                         {% endif %}
 
                         {% for p in start_page..end_page %}
-                            <a href="?page={{ p }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}{% for url_status in selected_url_statuses %}&url_statuses[]={{ url_status }}{% endfor %}"
+                            <a href="?page={{ p }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% if scraping_filter %}&scraping_filter={{ scraping_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}{% for url_status in selected_url_statuses %}&url_statuses[]={{ url_status }}{% endfor %}"
                                class="btn {% if p == page %}btn-primary{% else %}btn-outline{% endif %}">
                                 {{ p }}
                             </a>
@@ -712,7 +737,7 @@
                             {% if end_page < total_pages - 1 %}
                                 <span class="px-3 py-2">...</span>
                             {% endif %}
-                            <a href="?page={{ total_pages }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}{% for url_status in selected_url_statuses %}&url_statuses[]={{ url_status }}{% endfor %}"
+                            <a href="?page={{ total_pages }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% if scraping_filter %}&scraping_filter={{ scraping_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}{% for url_status in selected_url_statuses %}&url_statuses[]={{ url_status }}{% endfor %}"
                                class="btn btn-outline">
                                 {{ total_pages }}
                             </a>
@@ -720,7 +745,7 @@
 
                         {# Next button #}
                         {% if page < total_pages %}
-                            <a href="?page={{ page + 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}{% for url_status in selected_url_statuses %}&url_statuses[]={{ url_status }}{% endfor %}"
+                            <a href="?page={{ page + 1 }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}{% if data_filter %}&data_filter={{ data_filter }}{% endif %}{% if scraping_filter %}&scraping_filter={{ scraping_filter }}{% endif %}{% for priority in selected_priorities %}&priorities[]={{ priority }}{% endfor %}{% for seller in selected_sellers %}&sellers[]={{ seller }}{% endfor %}{% for url_status in selected_url_statuses %}&url_statuses[]={{ url_status }}{% endfor %}"
                                class="btn btn-outline">
                                 Next
                             </a>

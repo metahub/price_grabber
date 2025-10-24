@@ -57,6 +57,7 @@ class BulkImportController
                 'url' => trim($parts[10]),
                 'name' => isset($parts[11]) && !empty(trim($parts[11])) ? trim($parts[11]) : null,
                 'description' => isset($parts[12]) && !empty(trim($parts[12])) ? trim($parts[12]) : null,
+                'scraping_enabled' => isset($parts[13]) && !empty(trim($parts[13])) ? (int)trim($parts[13]) : 1,
             ];
 
             // Validate required fields
@@ -112,11 +113,11 @@ class BulkImportController
 
     public function getTemplate()
     {
-        return "product_id\tparent_id\tsku\tean\tsite\tsite_product_id\tprice\tuvp\tsite_status\tproduct_priority\turl\tname\tdescription";
+        return "product_id\tparent_id\tsku\tean\tsite\tsite_product_id\tprice\tuvp\tsite_status\tproduct_priority\turl\tname\tdescription\tscraping_enabled";
     }
 
     public function getExampleRow()
     {
-        return "PROD001\t\tSKU123\t1234567890123\tamazon\tB08X123\t29.99\t39.99\tactive\twhite\thttps://example.com/product\tExample Product\tProduct description";
+        return "PROD001\t\tSKU123\t1234567890123\tamazon\tB08X123\t29.99\t39.99\tactive\twhite\thttps://example.com/product\tExample Product\tProduct description\t1";
     }
 }

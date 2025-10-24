@@ -45,6 +45,48 @@
                 </div>
             </div>
 
+            <div class="flex py-2 border-b">
+                <div class="font-semibold w-40 text-muted-foreground">URL Status:</div>
+                <div class="flex-1">
+                    {% if product.url_status == 'valid' %}
+                        <span class="badge border-transparent bg-green-600 text-white">Valid</span>
+                    {% elseif product.url_status == 'invalid' %}
+                        <span class="badge badge-danger">Invalid</span>
+                    {% elseif product.url_status == 'error' %}
+                        <span class="badge border-transparent bg-gray-600 text-white">Error</span>
+                    {% elseif product.url_status == 'unchecked' %}
+                        <span class="badge border-transparent bg-yellow-500 text-white">Unchecked</span>
+                    {% else %}
+                        <span class="badge badge-outline">Unknown</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="flex py-2 border-b">
+                <div class="font-semibold w-40 text-muted-foreground">Scraping:</div>
+                <div class="flex-1 flex items-center gap-3">
+                    <span id="scraping-status">
+                        {% if product.scraping_enabled == 1 %}
+                            <span class="badge border-transparent bg-green-600 text-white">Enabled</span>
+                        {% else %}
+                            <span class="badge border-transparent bg-red-600 text-white">Disabled</span>
+                        {% endif %}
+                    </span>
+                    <button
+                        id="toggle-scraping-btn"
+                        data-product-id="{{ product.product_id }}"
+                        data-enabled="{{ product.scraping_enabled }}"
+                        class="btn btn-sm btn-outline"
+                    >
+                        {% if product.scraping_enabled == 1 %}
+                            Disable Scraping
+                        {% else %}
+                            Enable Scraping
+                        {% endif %}
+                    </button>
+                </div>
+            </div>
+
             {% if product.description %}
                 <div class="flex py-2 border-b">
                     <div class="font-semibold w-40 text-muted-foreground">Description:</div>
@@ -134,4 +176,59 @@
         </a>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.getElementById('toggle-scraping-btn');
+    const statusSpan = document.getElementById('scraping-status');
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', async function() {
+            const productId = this.dataset.productId;
+            const currentEnabled = parseInt(this.dataset.enabled);
+            const newEnabled = currentEnabled === 1 ? 0 : 1;
+
+            // Disable button during request
+            toggleBtn.disabled = true;
+            toggleBtn.textContent = 'Processing...';
+
+            try {
+                const response = await fetch('/api/toggle-scraping.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        product_id: productId,
+                        enabled: newEnabled
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Update UI
+                    if (newEnabled === 1) {
+                        statusSpan.innerHTML = '<span class="badge border-transparent bg-green-600 text-white">Enabled</span>';
+                        toggleBtn.textContent = 'Disable Scraping';
+                    } else {
+                        statusSpan.innerHTML = '<span class="badge border-transparent bg-red-600 text-white">Disabled</span>';
+                        toggleBtn.textContent = 'Enable Scraping';
+                    }
+                    toggleBtn.dataset.enabled = newEnabled;
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to toggle scraping status'));
+                    toggleBtn.textContent = currentEnabled === 1 ? 'Disable Scraping' : 'Enable Scraping';
+                }
+            } catch (error) {
+                console.error('Error toggling scraping:', error);
+                alert('Error: Failed to toggle scraping status');
+                toggleBtn.textContent = currentEnabled === 1 ? 'Disable Scraping' : 'Enable Scraping';
+            } finally {
+                toggleBtn.disabled = false;
+            }
+        });
+    }
+});
+</script>
 {% endblock %}
