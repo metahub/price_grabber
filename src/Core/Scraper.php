@@ -409,8 +409,8 @@ class Scraper
     }
 
     /**
-     * Fetch URL using headless Chrome browser
-     * Used to bypass WAF/bot detection (e.g., AWS WAF challenges)
+     * Fetch URL using Selenium with undetected-chromedriver
+     * Used to bypass Kasada and other advanced bot detection
      *
      * @param string $url The URL to fetch
      * @return string|false The HTML content or false on failure
@@ -422,161 +422,64 @@ class Scraper
             return false;
         }
 
-        if (!file_exists($this->chromeBinaryPath)) {
-            Logger::error("Chrome binary not found", [
-                'path' => $this->chromeBinaryPath,
-                'url' => $url
-            ]);
-            return false;
-        }
-
         $memoryBefore = memory_get_usage(true);
 
-        Logger::info("Fetching URL with headless Chrome", [
+        Logger::info("Fetching URL with Selenium (undetected-chromedriver)", [
             'url' => $url,
-            'chrome_path' => $this->chromeBinaryPath,
             'memory_usage_mb' => round($memoryBefore / 1024 / 1024, 2)
         ]);
 
-        $browser = null;
+        // Call Python script with undetected-chromedriver
+        $scriptPath = __DIR__ . '/../../selenium-fetch.py';
+        $timeout = 90; // Increased timeout for slower pages
+        $waitTime = 15; // Wait for Kasada challenge
+        $headless = 'false'; // Non-headless required to bypass Kasada
 
-        try {
-            $browserFactory = new BrowserFactory($this->chromeBinaryPath);
+        $command = sprintf(
+            'python3 %s %s %d %d %s 2>&1',
+            escapeshellarg($scriptPath),
+            escapeshellarg($url),
+            $timeout,
+            $waitTime,
+            $headless
+        );
 
-            // Launch browser with options
-            // Testing: Removed all customFlags to see if that brings back JS challenges
-            // Before Oct 21, there were no custom flags and WAF challenges appeared
-            $browser = $browserFactory->createBrowser([
-                'headless' => true,
-                'noSandbox' => true, // Required for some server environments
-                'keepAlive' => false,
-                'windowSize' => [1920, 1080],
-                'userAgent' => $this->userAgent,
-            ]);
+        Logger::debug("Executing Selenium command", ['command' => $command]);
 
-            // Create a new page
-            $page = $browser->createPage();
+        exec($command, $output, $returnCode);
 
-            // Set realistic viewport size
-            try {
-                $page->setViewport(1920, 1080)->await();
-            } catch (\Exception $e) {
-                Logger::debug("Failed to set viewport", ['error' => $e->getMessage()]);
-            }
-
-            // Optionally disable images for faster loading
-            if ($this->chromeDisableImages) {
-                // Note: chrome-php doesn't have direct image blocking,
-                // but we can add it via Chrome DevTools Protocol if needed
-            }
-
-            // Navigate to the URL
-            $navigation = $page->navigate($url);
-
-            // Wait for page to load (with timeout)
-            // Use 'load' instead of 'networkIdle' to ensure external scripts load
-            $navigation->waitForNavigation('load', $this->chromeTimeout * 1000);
-
-            // Poll for actual content to load (challenge completion or page error)
-            // Kasada challenge is ~717 bytes, real pages are 400KB+
-            $maxWaitTime = 20; // seconds
-            $minContentSize = 10000; // 10KB threshold
-            $startTime = time();
-            $pollInterval = 500000; // 0.5 seconds in microseconds
-            $pollCount = 0;
-
-            Logger::info("Waiting for page content to load", [
+        if ($returnCode !== 0) {
+            Logger::error("Selenium script failed", [
                 'url' => $url,
-                'max_wait_seconds' => $maxWaitTime
+                'return_code' => $returnCode,
+                'output' => implode("\n", array_slice($output, 0, 10))
             ]);
+            return false;
+        }
 
-            $html = $page->getHtml();
-            $initialSize = strlen($html);
+        $html = implode("\n", $output);
+        $htmlLength = strlen($html);
 
-            while (strlen($html) < $minContentSize && (time() - $startTime) < $maxWaitTime) {
-                usleep($pollInterval);
-                $html = $page->getHtml();
-                $pollCount++;
+        $memoryAfter = memory_get_usage(true);
+        $memoryUsed = $memoryAfter - $memoryBefore;
 
-                // Log progress every 2 seconds
-                if ($pollCount % 4 === 0) {
-                    Logger::debug("Still waiting for content", [
-                        'url' => $url,
-                        'current_size' => strlen($html),
-                        'elapsed_seconds' => time() - $startTime
-                    ]);
-                }
-            }
-
-            $finalSize = strlen($html);
-            $elapsedTime = time() - $startTime;
-
-            Logger::info("Page content load complete", [
-                'url' => $url,
-                'initial_size' => $initialSize,
-                'final_size' => $finalSize,
-                'elapsed_seconds' => $elapsedTime,
-                'poll_count' => $pollCount,
-                'timed_out' => $finalSize < $minContentSize
-            ]);
-
-            $memoryAfter = memory_get_usage(true);
-            $memoryUsed = $memoryAfter - $memoryBefore;
-
-            $htmlLength = strlen($html);
-
-            // Check for suspiciously small responses (likely bot detection/error pages)
-            if ($htmlLength < 10000) {
-                Logger::warning("Received suspiciously small HTML response - possible bot detection", [
-                    'url' => $url,
-                    'html_length' => $htmlLength,
-                    'html_preview' => substr($html, 0, 500) // First 500 chars for debugging
-                ]);
-            }
-
-            Logger::info("Successfully fetched URL with Chrome", [
+        // Check for suspiciously small responses (likely bot detection)
+        if ($htmlLength < 10000) {
+            Logger::warning("Received small HTML response - possible bot detection", [
                 'url' => $url,
                 'html_length' => $htmlLength,
-                'memory_used_mb' => round($memoryUsed / 1024 / 1024, 2),
-                'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2)
+                'html_preview' => substr($html, 0, 500)
             ]);
-
-            return $html;
-
-        } catch (CommunicationException $e) {
-            Logger::error("Chrome communication error", [
-                'url' => $url,
-                'error' => $e->getMessage(),
-                'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2)
-            ]);
-            return false;
-        } catch (NoResponseAvailable $e) {
-            Logger::error("Chrome no response error", [
-                'url' => $url,
-                'error' => $e->getMessage(),
-                'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2)
-            ]);
-            return false;
-        } catch (\Exception $e) {
-            Logger::error("Chrome error", [
-                'url' => $url,
-                'error' => $e->getMessage(),
-                'error_type' => get_class($e),
-                'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2)
-            ]);
-            return false;
-        } finally {
-            // Always try to close the browser, even if an error occurred
-            if ($browser !== null) {
-                try {
-                    $browser->close();
-                } catch (\Exception $e) {
-                    Logger::warning("Failed to close Chrome browser", [
-                        'error' => $e->getMessage()
-                    ]);
-                }
-            }
         }
+
+        Logger::info("Successfully fetched URL with Selenium", [
+            'url' => $url,
+            'html_length' => $htmlLength,
+            'memory_used_mb' => round($memoryUsed / 1024 / 1024, 2),
+            'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2)
+        ]);
+
+        return $html;
     }
 
     private function parseHtml($html, $config)
