@@ -433,9 +433,17 @@ class Scraper
         $scriptPath = __DIR__ . '/../../selenium-fetch.py';
         $timeout = 90; // Increased timeout for slower pages
         $waitTime = 15; // Wait for Kasada challenge
-        $headless = 'false'; // Non-headless required to bypass Kasada
+        $headless = 'true'; // Headless mode (requires Xvfb on servers)
 
-        $command = sprintf(
+        // Check if xvfb-run is available (for headless servers)
+        $hasXvfb = false;
+        exec('which xvfb-run 2>/dev/null', $xvfbCheck, $xvfbReturnCode);
+        if ($xvfbReturnCode === 0 && !empty($xvfbCheck)) {
+            $hasXvfb = true;
+            Logger::debug("Xvfb detected, will use virtual display", ['xvfb_path' => $xvfbCheck[0]]);
+        }
+
+        $pythonCommand = sprintf(
             'python3 %s %s %d %d %s 2>&1',
             escapeshellarg($scriptPath),
             escapeshellarg($url),
@@ -444,7 +452,15 @@ class Scraper
             $headless
         );
 
-        Logger::debug("Executing Selenium command", ['command' => $command]);
+        // Wrap with xvfb-run if available (headless server)
+        $command = $hasXvfb
+            ? "xvfb-run -a {$pythonCommand}"
+            : $pythonCommand;
+
+        Logger::debug("Executing Selenium command", [
+            'command' => $command,
+            'using_xvfb' => $hasXvfb
+        ]);
 
         exec($command, $output, $returnCode);
 

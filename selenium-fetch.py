@@ -19,10 +19,14 @@ def fetch_url(url, timeout=60, wait_time=15, headless=True):
         url: URL to fetch
         timeout: Page load timeout in seconds
         wait_time: Time to wait after page load for JS challenges (seconds)
-        headless: Run in headless mode
+        headless: Run in headless mode (requires Xvfb on servers without display)
 
     Returns:
         HTML content as string
+
+    Note:
+        On headless servers, wrap this script with xvfb-run:
+        xvfb-run python3 selenium-fetch.py <url> ...
     """
     options = uc.ChromeOptions()
 
