@@ -445,12 +445,33 @@ class Scraper
             Logger::debug("Virtual environment not found, using system python3");
         }
 
-        // Check if xvfb-run is available (for headless servers)
-        $hasXvfb = false;
-        exec('which xvfb-run 2>/dev/null', $xvfbCheck, $xvfbReturnCode);
-        if ($xvfbReturnCode === 0 && !empty($xvfbCheck)) {
-            $hasXvfb = true;
-            Logger::debug("Xvfb detected, will use virtual display", ['xvfb_path' => $xvfbCheck[0]]);
+        // Check Xvfb configuration setting
+        $useXvfbSetting = $this->settingsModel->get('use_xvfb', 'auto');
+        $shouldUseXvfb = false;
+
+        if ($useXvfbSetting === 'false') {
+            // Never use Xvfb - always open real Chrome window
+            Logger::debug("Xvfb disabled by setting, using real Chrome window");
+            $shouldUseXvfb = false;
+        } elseif ($useXvfbSetting === 'true') {
+            // Force use of Xvfb - fail if not available
+            exec('which xvfb-run 2>/dev/null', $xvfbCheck, $xvfbReturnCode);
+            if ($xvfbReturnCode === 0 && !empty($xvfbCheck)) {
+                $shouldUseXvfb = true;
+                Logger::debug("Xvfb forced by setting", ['xvfb_path' => $xvfbCheck[0]]);
+            } else {
+                Logger::error("Xvfb forced by setting but xvfb-run not found - install with: apt-get install xvfb");
+                return false;
+            }
+        } else {
+            // Auto-detect: use Xvfb if available
+            exec('which xvfb-run 2>/dev/null', $xvfbCheck, $xvfbReturnCode);
+            if ($xvfbReturnCode === 0 && !empty($xvfbCheck)) {
+                $shouldUseXvfb = true;
+                Logger::debug("Xvfb auto-detected, will use virtual display", ['xvfb_path' => $xvfbCheck[0]]);
+            } else {
+                Logger::debug("Xvfb not found, using real Chrome window");
+            }
         }
 
         $pythonCommand = sprintf(
@@ -463,14 +484,15 @@ class Scraper
             $headless
         );
 
-        // Wrap with xvfb-run if available (headless server)
-        $command = $hasXvfb
+        // Wrap with xvfb-run if configured
+        $command = $shouldUseXvfb
             ? "xvfb-run -a {$pythonCommand}"
             : $pythonCommand;
 
         Logger::debug("Executing Selenium command", [
             'command' => $command,
-            'using_xvfb' => $hasXvfb
+            'using_xvfb' => $shouldUseXvfb,
+            'xvfb_setting' => $useXvfbSetting
         ]);
 
         exec($command, $output, $returnCode);
