@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Fingerprint Test</title>
+</head>
+<body>
+    <h1>Collecting Browser Fingerprint...</h1>
+    <pre id="output">Loading...</pre>
+
+    <canvas id="canvas" width="200" height="50" style="display:none;"></canvas>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            startCollection();
+        });
+
+        async function startCollection() {
+            try {
+                const fingerprint = await collectFingerprint();
+                document.getElementById('output').textContent = JSON.stringify(fingerprint, null, 2);
+
+                // Also expose it globally for Selenium to grab
+                window.fingerprintData = fingerprint;
+                console.log('Fingerprint collection complete');
+            } catch (error) {
+                console.error('Fingerprint collection error:', error);
+                document.getElementById('output').textContent = 'ERROR: ' + error.message;
+                // Set empty data so script doesn't hang
+                window.fingerprintData = { error: error.message };
+            }
+        }
+
+        async function collectFingerprint() {
+            const fingerprint = {};
+
+            // Screen information
+            fingerprint.screen = {
+                width: screen.width,
+                height: screen.height,
+                availWidth: screen.availWidth,
+                availHeight: screen.availHeight,
+                colorDepth: screen.colorDepth,
+                pixelDepth: screen.pixelDepth,
+                devicePixelRatio: window.devicePixelRatio,
+                orientation: screen.orientation ? screen.orientation.type : 'unknown'
+            };
+
+            // Window information
+            fingerprint.window = {
+                innerWidth: window.innerWidth,
+                innerHeight: window.innerHeight,
+                outerWidth: window.outerWidth,
+                outerHeight: window.outerHeight,
+                screenX: window.screenX,
+                screenY: window.screenY
+            };
+
+            // Navigator information
+            fingerprint.navigator = {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                language: navigator.language,
+                languages: navigator.languages,
+                hardwareConcurrency: navigator.hardwareConcurrency,
+                deviceMemory: navigator.deviceMemory,
+                maxTouchPoints: navigator.maxTouchPoints,
+                vendor: navigator.vendor,
+                vendorSub: navigator.vendorSub,
+                productSub: navigator.productSub,
+                cookieEnabled: navigator.cookieEnabled,
+                doNotTrack: navigator.doNotTrack,
+                plugins: Array.from(navigator.plugins).map(p => ({
+                    name: p.name,
+                    description: p.description,
+                    filename: p.filename
+                }))
+            };
+
+            // Timezone
+            fingerprint.timezone = {
+                offset: new Date().getTimezoneOffset(),
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            };
+
+            // WebGL information
+            const canvas = document.getElementById('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+
+            if (gl) {
+                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                fingerprint.webgl = {
+                    vendor: gl.getParameter(gl.VENDOR),
+                    renderer: gl.getParameter(gl.RENDERER),
+                    version: gl.getParameter(gl.VERSION),
+                    shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
+                    unmaskedVendor: debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : 'not available',
+                    unmaskedRenderer: debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'not available',
+                    extensions: gl.getSupportedExtensions(),
+                    maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
+                    maxVertexAttribs: gl.getParameter(gl.MAX_VERTEX_ATTRIBS),
+                    maxViewportDims: gl.getParameter(gl.MAX_VIEWPORT_DIMS)
+                };
+            } else {
+                fingerprint.webgl = { error: 'WebGL not available' };
+            }
+
+            // Canvas fingerprint
+            try {
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.textBaseline = 'top';
+                    ctx.font = '14px Arial';
+                    ctx.textBaseline = 'alphabetic';
+                    ctx.fillStyle = '#f60';
+                    ctx.fillRect(125, 1, 62, 20);
+                    ctx.fillStyle = '#069';
+                    ctx.fillText('Browser Fingerprint Test 🔍', 2, 15);
+                    ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+                    ctx.fillText('Browser Fingerprint Test 🔍', 4, 17);
+                    fingerprint.canvas = {
+                        dataURL: canvas.toDataURL(),
+                        hash: hashCode(canvas.toDataURL())
+                    };
+                } else {
+                    fingerprint.canvas = { error: 'Could not get 2d context' };
+                }
+            } catch (e) {
+                fingerprint.canvas = { error: e.message };
+            }
+
+            // Fonts detection (sample of common fonts)
+            const baseFonts = ['monospace', 'sans-serif', 'serif'];
+            const testFonts = [
+                'Arial', 'Verdana', 'Courier New', 'Georgia', 'Times New Roman',
+                'Trebuchet MS', 'Comic Sans MS', 'Impact', 'Palatino',
+                'Helvetica', 'Tahoma', 'Geneva', 'Lucida', 'Monaco'
+            ];
+
+            fingerprint.fonts = {
+                available: testFonts.filter(font => isFontAvailable(font, baseFonts))
+            };
+
+            // Connection information
+            if (navigator.connection || navigator.mozConnection || navigator.webkitConnection) {
+                const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+                fingerprint.connection = {
+                    effectiveType: conn.effectiveType,
+                    downlink: conn.downlink,
+                    rtt: conn.rtt,
+                    saveData: conn.saveData
+                };
+            }
+
+            // Battery information
+            try {
+                if (navigator.getBattery) {
+                    const battery = await navigator.getBattery();
+                    fingerprint.battery = {
+                        charging: battery.charging,
+                        level: battery.level,
+                        chargingTime: battery.chargingTime,
+                        dischargingTime: battery.dischargingTime
+                    };
+                } else {
+                    fingerprint.battery = { error: 'Battery API not available' };
+                }
+            } catch (e) {
+                fingerprint.battery = { error: e.message };
+            }
+
+            // Media devices
+            try {
+                if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    fingerprint.mediaDevices = {
+                        count: devices.length,
+                        audioInputs: devices.filter(d => d.kind === 'audioinput').length,
+                        audioOutputs: devices.filter(d => d.kind === 'audiooutput').length,
+                        videoInputs: devices.filter(d => d.kind === 'videoinput').length
+                    };
+                } else {
+                    fingerprint.mediaDevices = { error: 'API not available' };
+                }
+            } catch (e) {
+                fingerprint.mediaDevices = { error: e.message };
+            }
+
+            // Performance/Timing
+            if (window.performance && window.performance.memory) {
+                fingerprint.performance = {
+                    jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
+                    totalJSHeapSize: performance.memory.totalJSHeapSize,
+                    usedJSHeapSize: performance.memory.usedJSHeapSize
+                };
+            }
+
+            return fingerprint;
+        }
+
+        // Helper function to detect fonts
+        function isFontAvailable(fontName, baseFonts) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const text = 'mmmmmmmmmmlli';
+            const fontSize = '72px';
+
+            ctx.font = fontSize + ' ' + baseFonts[0];
+            const baseWidth = ctx.measureText(text).width;
+
+            ctx.font = fontSize + ' ' + fontName + ', ' + baseFonts[0];
+            const testWidth = ctx.measureText(text).width;
+
+            return baseWidth !== testWidth;
+        }
+
+        // Simple hash function
+        function hashCode(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return hash;
+        }
+
+    </script>
+</body>
+</html>
