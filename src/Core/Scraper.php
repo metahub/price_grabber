@@ -445,32 +445,65 @@ class Scraper
             Logger::debug("Virtual environment not found, using system python3");
         }
 
-        // Check Xvfb configuration setting
+        // Check display configuration setting
         $useXvfbSetting = $this->settingsModel->get('use_xvfb', 'auto');
-        $shouldUseXvfb = false;
+        $displayMode = 'native'; // native, vnc, or xvfb
+        $displayEnv = '';
 
         if ($useXvfbSetting === 'false') {
-            // Never use Xvfb - always open real Chrome window
-            Logger::debug("Xvfb disabled by setting, using real Chrome window");
-            $shouldUseXvfb = false;
-        } elseif ($useXvfbSetting === 'true') {
+            // Never use virtual display - always open real Chrome window
+            Logger::debug("Virtual display disabled by setting, using native Chrome window");
+            $displayMode = 'native';
+        } elseif ($useXvfbSetting === 'vnc') {
+            // Force use of VNC display - check if VNC server is running
+            exec('ps aux | grep -v grep | grep -E "vnc|Xvnc" 2>/dev/null', $vncCheck, $vncReturnCode);
+            if ($vncReturnCode === 0 && !empty($vncCheck)) {
+                // VNC is running, try to detect display number
+                $vncDisplay = ':1'; // Default VNC display
+                if (file_exists('/tmp/.X1-lock')) {
+                    $vncDisplay = ':1';
+                } elseif (file_exists('/tmp/.X11-lock')) {
+                    $vncDisplay = ':11';
+                }
+                $displayMode = 'vnc';
+                $displayEnv = "DISPLAY={$vncDisplay} ";
+                Logger::debug("VNC forced by setting", ['display' => $vncDisplay]);
+            } else {
+                Logger::error("VNC forced by setting but VNC server not running - start with: vncserver :1 -geometry 1920x1080 -depth 24");
+                return false;
+            }
+        } elseif ($useXvfbSetting === 'xvfb') {
             // Force use of Xvfb - fail if not available
             exec('which xvfb-run 2>/dev/null', $xvfbCheck, $xvfbReturnCode);
             if ($xvfbReturnCode === 0 && !empty($xvfbCheck)) {
-                $shouldUseXvfb = true;
+                $displayMode = 'xvfb';
                 Logger::debug("Xvfb forced by setting", ['xvfb_path' => $xvfbCheck[0]]);
             } else {
                 Logger::error("Xvfb forced by setting but xvfb-run not found - install with: apt-get install xvfb");
                 return false;
             }
         } else {
-            // Auto-detect: use Xvfb if available
-            exec('which xvfb-run 2>/dev/null', $xvfbCheck, $xvfbReturnCode);
-            if ($xvfbReturnCode === 0 && !empty($xvfbCheck)) {
-                $shouldUseXvfb = true;
-                Logger::debug("Xvfb auto-detected, will use virtual display", ['xvfb_path' => $xvfbCheck[0]]);
+            // Auto-detect: try VNC first, then Xvfb, then native
+            exec('ps aux | grep -v grep | grep -E "vnc|Xvnc" 2>/dev/null', $vncCheck, $vncReturnCode);
+            if ($vncReturnCode === 0 && !empty($vncCheck)) {
+                $vncDisplay = ':1';
+                if (file_exists('/tmp/.X1-lock')) {
+                    $vncDisplay = ':1';
+                } elseif (file_exists('/tmp/.X11-lock')) {
+                    $vncDisplay = ':11';
+                }
+                $displayMode = 'vnc';
+                $displayEnv = "DISPLAY={$vncDisplay} ";
+                Logger::debug("VNC auto-detected", ['display' => $vncDisplay]);
             } else {
-                Logger::debug("Xvfb not found, using real Chrome window");
+                exec('which xvfb-run 2>/dev/null', $xvfbCheck, $xvfbReturnCode);
+                if ($xvfbReturnCode === 0 && !empty($xvfbCheck)) {
+                    $displayMode = 'xvfb';
+                    Logger::debug("Xvfb auto-detected, will use virtual framebuffer", ['xvfb_path' => $xvfbCheck[0]]);
+                } else {
+                    $displayMode = 'native';
+                    Logger::debug("No virtual display found, using native Chrome window");
+                }
             }
         }
 
@@ -484,15 +517,19 @@ class Scraper
             $headless
         );
 
-        // Wrap with xvfb-run if configured
-        $command = $shouldUseXvfb
-            ? "xvfb-run -a {$pythonCommand}"
-            : $pythonCommand;
+        // Configure command based on display mode
+        if ($displayMode === 'vnc') {
+            $command = "{$displayEnv}{$pythonCommand}";
+        } elseif ($displayMode === 'xvfb') {
+            $command = "xvfb-run -a {$pythonCommand}";
+        } else {
+            $command = $pythonCommand;
+        }
 
         Logger::debug("Executing Selenium command", [
             'command' => $command,
-            'using_xvfb' => $shouldUseXvfb,
-            'xvfb_setting' => $useXvfbSetting
+            'display_mode' => $displayMode,
+            'display_setting' => $useXvfbSetting
         ]);
 
         exec($command, $output, $returnCode);
