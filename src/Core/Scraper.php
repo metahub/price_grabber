@@ -422,7 +422,7 @@ class Scraper
         $scriptPath = __DIR__ . '/../../selenium-fetch.py';
         $timeout = 90; // Increased timeout for slower pages
         $waitTime = 15; // Wait for Kasada challenge
-        $headless = 'true'; // Headless mode (requires Xvfb on servers)
+        $headless = 'false'; // Visible mode (opens window on Mac, renders to Xvfb on servers)
 
         // Check for virtual environment python (preferred for servers)
         // Try multiple locations for releases-based deployments

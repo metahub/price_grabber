@@ -61,33 +61,9 @@ def fetch_url(url, timeout=60, wait_time=15, headless=True):
         # Set page load timeout
         driver.set_page_load_timeout(timeout)
 
-        # Inject JavaScript BEFORE navigating to hide automation
-        try:
-            driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-                'source': '''
-                    Object.defineProperty(navigator, 'webdriver', {
-                        get: () => undefined
-                    });
-                    Object.defineProperty(navigator, 'plugins', {
-                        get: () => [1, 2, 3, 4, 5]
-                    });
-                    Object.defineProperty(navigator, 'languages', {
-                        get: () => ['de-DE', 'de', 'en-US', 'en']
-                    });
-                    window.chrome = {
-                        runtime: {}
-                    };
-                    Object.defineProperty(navigator, 'permissions', {
-                        get: () => ({
-                            query: () => Promise.resolve({ state: 'prompt' })
-                        })
-                    });
-                '''
-            })
-        except Exception as e:
-            print(f"Warning: Could not inject stealth JavaScript: {e}", file=sys.stderr)
-
         # Navigate to URL
+        # Note: No CDP commands - undetected-chromedriver handles stealth internally
+        # Using CDP (execute_cdp_cmd) triggers Kasada detection
         driver.get(url)
 
         # Wait for page content to load (Kasada challenge to complete)
